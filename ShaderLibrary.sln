@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34219.65
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShaderLibrary", "ShaderLibrary\ShaderLibrary.csproj", "{DD182491-0361-41BD-8B23-9C9F6AC62CD9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShaderLibrary.Test", "ShaderLibrary.Test\ShaderLibrary.Test.csproj", "{5826B161-AE72-4E22-81F8-0EA9C5DD7E22}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DD182491-0361-41BD-8B23-9C9F6AC62CD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD182491-0361-41BD-8B23-9C9F6AC62CD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD182491-0361-41BD-8B23-9C9F6AC62CD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD182491-0361-41BD-8B23-9C9F6AC62CD9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5826B161-AE72-4E22-81F8-0EA9C5DD7E22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5826B161-AE72-4E22-81F8-0EA9C5DD7E22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5826B161-AE72-4E22-81F8-0EA9C5DD7E22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5826B161-AE72-4E22-81F8-0EA9C5DD7E22}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D99CF9D9-8EC2-446F-A840-A7B47AA13FCC}
+	EndGlobalSection
+EndGlobal

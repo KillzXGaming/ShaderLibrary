@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
     [StructLayout(LayoutKind.Sequential, Size = 0x10)]
     public struct BinaryHeader //A header shared between bntx and other formats

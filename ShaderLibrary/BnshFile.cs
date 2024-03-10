@@ -7,7 +7,7 @@ using System.Runtime;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
     public class BnshFile
     {

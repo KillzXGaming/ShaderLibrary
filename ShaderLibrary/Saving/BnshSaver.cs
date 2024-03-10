@@ -5,10 +5,10 @@ using System.Text;
 using System.Xml.Linq;
 using System.IO;
 using System.Reflection.PortableExecutable;
-using BfshaLibrary.Common;
+using ShaderLibrary.Common;
 using System.Diagnostics;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
     public class BnshSaver
     {

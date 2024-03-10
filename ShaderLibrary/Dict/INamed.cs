@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
-    public interface IResData
+    public interface INamed
     {
-        void Read(BinaryReader reader);
+        string Name { get; set; }
     }
 }

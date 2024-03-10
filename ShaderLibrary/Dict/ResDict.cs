@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
     public class ResDict<T> :  Dictionary<string, T>, IResData where T : IResData, new()
     {

@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
     internal readonly ref struct TemporarySeekHandle
         (Stream stream, long retpos)

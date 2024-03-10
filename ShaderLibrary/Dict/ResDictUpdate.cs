@@ -6,7 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
     public class ResDictUpdate
     {

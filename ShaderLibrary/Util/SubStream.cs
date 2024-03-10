@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace BfshaLibrary
+namespace ShaderLibrary
 {
     //From
     //https://github.com/IcySon55/Kuriimu/blob/master/src/Kontract/IO/SubStream.cs
