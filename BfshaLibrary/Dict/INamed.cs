@@ -4,11 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BfshaLibraryRewrite
+namespace BfshaLibrary
 {
-    public class VersionAttribute : Attribute
+    public interface INamed
     {
-        public VersionAttribute() { 
-        }
+        string Name { get; set; }
     }
 }

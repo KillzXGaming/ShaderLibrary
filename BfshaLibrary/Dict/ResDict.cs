@@ -1,16 +1,21 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace Fushigi.Bfres.Common
+namespace BfshaLibrary
 {
     public class ResDict<T> :  Dictionary<string, T>, IResData where T : IResData, new()
     {
+        private List<Node> _nodes = new List<Node>();
+
+        internal List<Node> GetNodes() => _nodes;
+
         public ResDict() { }
 
         public T this[int index]
@@ -39,12 +44,12 @@ namespace Fushigi.Bfres.Common
             reader.ReadUInt32(); //magic
             int numNodes = reader.ReadInt32();
 
-            List<Node> nodes = new List<Node>();
+            _nodes.Clear();
 
             int i = 0;
             for (; numNodes >= 0; numNodes--)
             {
-                nodes.Add(new Node()
+                _nodes.Add(new Node()
                 {
                     Reference = reader.ReadUInt32(),
                     IdxLeft = reader.ReadUInt16(),
@@ -54,11 +59,24 @@ namespace Fushigi.Bfres.Common
                 i++;
             }
 
-            for (int j = 1; j < nodes.Count; j++)
-                this.Add(nodes[j].Key, new T());
+            for (int j = 1; j < _nodes.Count; j++)
+                this.Add(_nodes[j].Key, new T());
         }
 
-        protected class Node
+        public void GenerateTree()
+        {
+            // Update the Patricia trie values in the nodes.
+            var newNodes = ResDictUpdate.UpdateNodes(Keys.ToList());
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                _nodes[i].Reference = newNodes[i].Reference;
+                _nodes[i].IdxLeft = newNodes[i].IdxLeft;
+                _nodes[i].IdxRight = newNodes[i].IdxRight;
+                _nodes[i].Key = newNodes[i].Key;
+            }
+        }
+
+        internal class Node
         {
             internal uint Reference;
             internal ushort IdxLeft;

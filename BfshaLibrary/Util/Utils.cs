@@ -1,10 +1,9 @@
-﻿using Fushigi.Bfres.Common;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Fushigi.Bfres
+namespace BfshaLibrary
 {
     internal readonly ref struct TemporarySeekHandle
         (Stream stream, long retpos)
@@ -42,6 +41,18 @@ namespace Fushigi.Bfres
                 reader.ReadSingle(), reader.ReadSingle());
         }
 
+        public static void WriteSignature(this BinaryWriter writer, string magic)
+        {
+            writer.Write(Encoding.ASCII.GetBytes(magic));
+        }
+
+        public static long SaveOffset(this BinaryWriter writer)
+        {
+            long pos = writer.BaseStream.Position;
+            writer.Write(0UL);
+            return pos;
+        }
+
         public static void Write(this BinaryWriter writer, float[] values)
         {
             for (int i = 0; i < values.Length; i++)
@@ -66,10 +77,16 @@ namespace Fushigi.Bfres
                 writer.Write(values[i]);
         }
 
-        public static void AlignBytes(this BinaryWriter writer, int align)
+        public static void AlignBytes(this BinaryWriter writer, int align, byte pad_val = 0)
         {
-            var num = (writer.BaseStream.Position + (align - 1)) & ~(align - 1);
-            writer.Write(new byte[num]);
+            var startPos = writer.BaseStream.Position;
+            long position = writer.Seek((int)(-writer.BaseStream.Position % align + align) % align, SeekOrigin.Current);
+
+            writer.Seek((int)startPos, System.IO.SeekOrigin.Begin);
+            while (writer.BaseStream.Position != position)
+            {
+                writer.Write((byte)pad_val);
+            }
         }
 
         public static sbyte[] ReadSbytes(this BinaryReader reader, int count)
@@ -208,12 +225,12 @@ namespace Fushigi.Bfres
             return list;
         }
 
-        public static T Read<T>(this BinaryReader reader, ulong offset) where T : IResData
+        public static T Read<T>(this BinaryReader reader, ulong offset) where T : IResData, new()
         {
             T instance = (T)Activator.CreateInstance(typeof(T));
 
             if (offset == 0)
-                return instance;
+                return default(T); 
 
             reader.SeekBegin((long)offset);
             instance.Read(reader);

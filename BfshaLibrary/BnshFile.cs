@@ -1,12 +1,13 @@
-﻿using Ryujinx.Common.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Runtime;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Fushigi.Bfres
+namespace BfshaLibrary
 {
     public class BnshFile
     {
@@ -14,17 +15,32 @@ namespace Fushigi.Bfres
 
         public List<ShaderVariation> Variations { get; set; }
 
-        private BinaryHeader BinHeader; //A header shared between bnsh and other formats
-        private BnshHeader Header; //Bnsh header
+        public BinaryHeader BinHeader; //A header shared between bnsh and other formats
+        public BnshHeader Header; //Bnsh header
 
         public BnshFile() { }
 
-        public BnshFile(string filePath) {
+        public BnshFile(string filePath)
+        {
             Read(File.OpenRead(filePath));
         }
 
-        public BnshFile(Stream stream) {
+        public BnshFile(Stream stream)
+        {
             Read(stream);
+        }
+
+        public void Save(string  filePath)
+        {
+            using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                Save(fs);
+        }
+
+        public void Save(Stream stream)
+        {
+            BnshSaver saver = new BnshSaver();
+            using (var writer = new BinaryWriter(stream))
+                saver.Save(this, writer);
         }
 
         public void Read(Stream stream)
@@ -49,7 +65,7 @@ namespace Fushigi.Bfres
 
             internal long Position;
 
-            private VariationHeader header; 
+            private VariationHeader header;
 
             public void Read(BinaryReader reader)
             {
@@ -70,8 +86,19 @@ namespace Fushigi.Bfres
             public ShaderCode FragmentShader { get; set; }
             public ShaderCode GeometryShader { get; set; }
             public ShaderCode ComputeShader { get; set; }
+            public ShaderCode HullShader { get; set; }
+            public ShaderCode DomainShader { get; set; }
 
-            private BnshShaderProgramHeader header;
+            public ShaderReflectionData VertexShaderReflection { get; set; }
+            public ShaderReflectionData FragmentShaderReflection { get; set; }
+            public ShaderReflectionData GeometryShaderReflection { get; set; }
+            public ShaderReflectionData ComputeShaderReflection { get; set; }
+            public ShaderReflectionData HullShaderReflection { get; set; }
+            public ShaderReflectionData DomainShaderReflection { get; set; }
+
+            public byte[] MemoryData = new byte[256];
+
+            public BnshShaderProgramHeader header;
 
             public void Read(BinaryReader reader)
             {
@@ -82,6 +109,24 @@ namespace Fushigi.Bfres
                 FragmentShader = reader.Read<ShaderCode>(header.FragmentShaderOffset);
                 GeometryShader = reader.Read<ShaderCode>(header.GeometryShaderOffset);
                 ComputeShader = reader.Read<ShaderCode>(header.ComputeShaderOffset);
+                HullShader = reader.Read<ShaderCode>(header.HullShaderOffset);
+                DomainShader = reader.Read<ShaderCode>(header.DomainShaderOffset);
+
+                reader.SeekBegin(header.ObjectOffset);
+                MemoryData = reader.ReadBytes((int)header.ObjectSize);
+
+                if (header.ShaderReflectionOffset != 0)
+                {
+                    reader.SeekBegin(header.ShaderReflectionOffset);
+                    //offsets
+                    var offsets = reader.ReadUInt64s(6);
+                    VertexShaderReflection = reader.Read<ShaderReflectionData>(offsets[0]);
+                    HullShaderReflection = reader.Read<ShaderReflectionData>(offsets[1]);
+                    DomainShaderReflection = reader.Read<ShaderReflectionData>(offsets[2]);
+                    GeometryShaderReflection = reader.Read<ShaderReflectionData>(offsets[3]);
+                    FragmentShaderReflection = reader.Read<ShaderReflectionData>(offsets[4]);
+                    ComputeShaderReflection = reader.Read<ShaderReflectionData>(offsets[5]);
+                }
 
                 reader.SeekBegin(pos);
             }
@@ -92,6 +137,8 @@ namespace Fushigi.Bfres
             public byte[] ControlCode;
             public byte[] ByteCode;
 
+            public byte[] Reserved = new byte[32];
+
             public void Read(BinaryReader reader)
             {
                 reader.ReadBytes(8); //always empty
@@ -99,7 +146,7 @@ namespace Fushigi.Bfres
                 ulong byteCodeOffset = reader.ReadUInt64();
                 uint byteCodeSize = reader.ReadUInt32();
                 uint controlCodeSize = reader.ReadUInt32();
-                reader.ReadBytes(32); //padding
+                Reserved = reader.ReadBytes(32); //padding
 
                 ControlCode = reader.ReadCustom(() =>
                 {
@@ -110,6 +157,36 @@ namespace Fushigi.Bfres
                 {
                     return reader.ReadBytes((int)byteCodeSize);
                 }, byteCodeOffset);
+            }
+        }
+
+        public class ShaderReflectionData : IResData
+        {
+            public BnshShaderReflectionHeader header;
+
+            public ResDict<ResString> Inputs = new ResDict<ResString>();
+            public ResDict<ResString> Outputs = new ResDict<ResString>();
+            public ResDict<ResString> Samplers = new ResDict<ResString>();
+            public ResDict<ResString> ConstantBuffers = new ResDict<ResString>();
+            public ResDict<ResString> UnorderedAccessBuffers = new ResDict<ResString>();
+
+            public int[] Slots = new int[0];
+
+            public void Read(BinaryReader reader)
+            {
+                reader.BaseStream.Read(Utils.AsSpan(ref header));
+                var pos = reader.BaseStream.Position;
+
+                Inputs = reader.ReadDictionary<ResString>(header.InputDictionaryOffset);
+                Outputs = reader.ReadDictionary<ResString>(header.OutputDictionaryOffset);
+                Samplers = reader.ReadDictionary<ResString>(header.SamplerDictionaryOffset);
+                ConstantBuffers = reader.ReadDictionary<ResString>(header.ConstantBufferDictionaryOffset);
+                UnorderedAccessBuffers = reader.ReadDictionary<ResString>(header.UnorderedAccessBufferDictionaryOffset);
+
+                if (header.SlotCount > 0)
+                    Slots = reader.ReadCustom(() => reader.ReadInt32s((int)header.SlotCount), (uint)header.SlotOffset);
+
+                reader.SeekBegin(pos);
             }
         }
     }

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Fushigi.Bfres
+namespace BfshaLibrary
 {
     public interface IResData
     {
