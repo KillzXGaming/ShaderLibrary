@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ShaderLibrary.IO;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,7 +26,7 @@ namespace ShaderLibrary.Common
             writer.Write(0);
         }
 
-        public void Write(BinaryWriter writer)
+        public void Write(BinaryDataWriter writer)
         {
             writer.AlignBytes(8);
 

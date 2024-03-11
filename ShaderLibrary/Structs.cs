@@ -150,7 +150,44 @@ namespace ShaderLibrary
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 0x10)]
-    public struct ShaderProgramHeader
+    public struct ShaderProgramHeaderV4
+    {
+        public ulong SamplerIndexTableOffset;
+        public ulong UniformIndexTableBlockOffset;
+        public ulong VariationOffset;
+        public ulong ParentModelOffset;
+
+        public uint UsedAttributeFlags; //bits for what is used
+        public ushort Flags;
+        public ushort NumSamplers;
+
+        public ushort NumBlocks;
+        public ushort Padding1;
+        public ushort Padding2;
+        public ushort Padding3;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 0x10)]
+    public struct ShaderProgramHeaderV7
+    {
+        public ulong SamplerIndexTableOffset;
+        public ulong UniformIndexTableBlockOffset;
+        public ulong StorageBufferIndexTableOffset;
+        public ulong VariationOffset;
+        public ulong ParentModelOffset;
+
+        public uint UsedAttributeFlags; //bits for what is used
+        public ushort Flags;
+        public ushort NumSamplers;
+
+        public ushort NumBlocks;
+        public ushort NumStorageBuffers;
+        public ushort Padding1;
+        public ushort Padding2;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 0x10)]
+    public struct ShaderProgramHeaderV8
     {
         public ulong SamplerIndexTableOffset;
         public ulong ImageIndexTableOffset;

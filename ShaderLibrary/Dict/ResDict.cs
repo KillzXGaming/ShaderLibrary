@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ShaderLibrary.IO;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -39,7 +40,7 @@ namespace ShaderLibrary
             return null;
         }
 
-        public void Read(BinaryReader reader)
+        public void Read(BinaryDataReader reader)
         {
             reader.ReadUInt32(); //magic
             int numNodes = reader.ReadInt32();
@@ -54,7 +55,7 @@ namespace ShaderLibrary
                     Reference = reader.ReadUInt32(),
                     IdxLeft = reader.ReadUInt16(),
                     IdxRight = reader.ReadUInt16(),
-                    Key = reader.ReadStringOffset(reader.ReadUInt64()),
+                    Key = reader.LoadString(reader.ReadUInt64()),
                 });
                 i++;
             }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ShaderLibrary.IO;
+using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
@@ -39,19 +40,19 @@ namespace ShaderLibrary
         public void Save(Stream stream)
         {
             BnshSaver saver = new BnshSaver();
-            using (var writer = new BinaryWriter(stream))
+            using (var writer = new BinaryDataWriter(stream))
                 saver.Save(this, writer);
         }
 
         public void Read(Stream stream)
         {
-            var reader = stream.AsBinaryReader();
+            var reader = new BinaryDataReader(stream);
 
             stream.Read(Utils.AsSpan(ref BinHeader));
             reader.ReadBytes(64); //padding
 
             if (BinHeader.NameOffset != 0)
-                Name = reader.ReadStringOffset(BinHeader.NameOffset - 2);
+                Name = reader.LoadString(BinHeader.NameOffset - 2);
 
             //GRSC header
             reader.BaseStream.Read(Utils.AsSpan(ref Header));
@@ -67,7 +68,7 @@ namespace ShaderLibrary
 
             private VariationHeader header;
 
-            public void Read(BinaryReader reader)
+            public void Read(BinaryDataReader reader)
             {
                 Position = reader.BaseStream.Position;
 
@@ -100,7 +101,7 @@ namespace ShaderLibrary
 
             public BnshShaderProgramHeader header;
 
-            public void Read(BinaryReader reader)
+            public void Read(BinaryDataReader reader)
             {
                 reader.BaseStream.Read(Utils.AsSpan(ref header));
                 var pos = reader.BaseStream.Position;
@@ -139,7 +140,7 @@ namespace ShaderLibrary
 
             public byte[] Reserved = new byte[32];
 
-            public void Read(BinaryReader reader)
+            public void Read(BinaryDataReader reader)
             {
                 reader.ReadBytes(8); //always empty
                 ulong controlCodeOffset = reader.ReadUInt64();
@@ -172,16 +173,16 @@ namespace ShaderLibrary
 
             public int[] Slots = new int[0];
 
-            public void Read(BinaryReader reader)
+            public void Read(BinaryDataReader reader)
             {
                 reader.BaseStream.Read(Utils.AsSpan(ref header));
                 var pos = reader.BaseStream.Position;
 
-                Inputs = reader.ReadDictionary<ResString>(header.InputDictionaryOffset);
-                Outputs = reader.ReadDictionary<ResString>(header.OutputDictionaryOffset);
-                Samplers = reader.ReadDictionary<ResString>(header.SamplerDictionaryOffset);
-                ConstantBuffers = reader.ReadDictionary<ResString>(header.ConstantBufferDictionaryOffset);
-                UnorderedAccessBuffers = reader.ReadDictionary<ResString>(header.UnorderedAccessBufferDictionaryOffset);
+                Inputs = reader.LoadDictionary<ResString>(header.InputDictionaryOffset);
+                Outputs = reader.LoadDictionary<ResString>(header.OutputDictionaryOffset);
+                Samplers = reader.LoadDictionary<ResString>(header.SamplerDictionaryOffset);
+                ConstantBuffers = reader.LoadDictionary<ResString>(header.ConstantBufferDictionaryOffset);
+                UnorderedAccessBuffers = reader.LoadDictionary<ResString>(header.UnorderedAccessBufferDictionaryOffset);
 
                 if (header.SlotCount > 0)
                     Slots = reader.ReadCustom(() => reader.ReadInt32s((int)header.SlotCount), (uint)header.SlotOffset);

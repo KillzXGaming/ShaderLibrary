@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ShaderLibrary.IO;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,6 +12,8 @@ namespace ShaderLibrary.Common
         private Dictionary<string, StringEntry> _savedStrings = new Dictionary<string, StringEntry>();
 
         private long _ofsStringTable;
+
+        internal string fileName;
 
         public void SaveHeaderOffset(BinaryWriter writer)
         {
@@ -32,7 +35,7 @@ namespace ShaderLibrary.Common
             }
         }
 
-        public void Write(BinaryWriter writer)
+        public void Write(BinaryDataWriter writer)
         {
             writer.AlignBytes(8);
 
@@ -54,7 +57,12 @@ namespace ShaderLibrary.Common
                 foreach (var p in entry.Value.Positions)
                 {
                     using (writer.BaseStream.TemporarySeek(p, SeekOrigin.Begin))
-                        writer.Write((uint)pos);
+                    {
+                        if (entry.Key == fileName)
+                            writer.Write((uint)pos + 2); //filename points after length
+                        else 
+                            writer.Write((uint)pos);
+                    }
                 }
 
                 // Align and satisfy offsets.

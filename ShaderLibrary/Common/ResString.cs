@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ShaderLibrary.IO;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,7 +26,7 @@ namespace ShaderLibrary
 
         public override string ToString() { return String; }
 
-        public void Read(BinaryReader reader)
+        public void Read(BinaryDataReader reader)
         {
         }
     }

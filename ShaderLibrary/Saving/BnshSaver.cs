@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection.PortableExecutable;
 using ShaderLibrary.Common;
 using System.Diagnostics;
+using ShaderLibrary.IO;
 
 namespace ShaderLibrary
 {
@@ -28,7 +29,7 @@ namespace ShaderLibrary
             public long Offset;
         }
 
-        public void Save(BnshFile bnsh, BinaryWriter writer)
+        public void Save(BnshFile bnsh, BinaryDataWriter writer)
         {
             //RLT section list as order of data written
             //0 = main file
@@ -268,42 +269,12 @@ namespace ShaderLibrary
                     if (data == null)
                         continue;
 
-                    if (data.Inputs.Count > 0)
-                    {
-                        writer.AlignBytes(8);
-                        WriteOffset(writer, (long)data.header.InputDictionaryOffset);
-                        WriteDictionary(writer, data.Inputs);
-                        num_dict++;
-                    }
-                    if (data.Outputs.Count > 0)
-                    {
-                        writer.AlignBytes(8);
-                        WriteOffset(writer, (long)data.header.OutputDictionaryOffset);
-                        WriteDictionary(writer, data.Outputs);
-                        num_dict++;
-                    }
-                    if (data.Samplers.Count > 0)
-                    {
-                        writer.AlignBytes(8);
-                        WriteOffset(writer, (long)data.header.SamplerDictionaryOffset);
-                        WriteDictionary(writer, data.Samplers);
-                        num_dict++;
-                    }
-                    if (data.ConstantBuffers.Count > 0)
-                    {
-                        writer.AlignBytes(8);
-                        WriteOffset(writer, (long)data.header.ConstantBufferDictionaryOffset);
-                        WriteDictionary(writer, data.ConstantBuffers);
-                        num_dict++;
-                    }
-                    if (data.UnorderedAccessBuffers.Count > 0)
-                    {
-                        writer.AlignBytes(8);
-                        WriteOffset(writer, (long)data.header.UnorderedAccessBufferDictionaryOffset);
-                        WriteDictionary(writer, data.UnorderedAccessBuffers);
-                        num_dict++;
+                    writer.WriteDictionary(data.Inputs, (long)data.header.InputDictionaryOffset);
+                    writer.WriteDictionary(data.Outputs, (long)data.header.OutputDictionaryOffset);
+                    writer.WriteDictionary(data.Samplers, (long)data.header.SamplerDictionaryOffset);
+                    writer.WriteDictionary(data.ConstantBuffers, (long)data.header.ConstantBufferDictionaryOffset);
+                    writer.WriteDictionary(data.UnorderedAccessBuffers, (long)data.header.UnorderedAccessBufferDictionaryOffset);
 
-                    }
                     if (data.Slots.Length > 0)
                     {
                         writer.AlignBytes(8);
@@ -439,7 +410,7 @@ namespace ShaderLibrary
             }
         }
 
-        private void WriteDictionary(BinaryWriter saver, ResDict<ResString> resDict)
+        private void WriteDictionary(BinaryDataWriter saver, ResDict<ResString> resDict)
         {
             resDict.GenerateTree();
             var nodes = resDict.GetNodes();
@@ -483,10 +454,11 @@ namespace ShaderLibrary
 
             writer.Write(0u); //uint size
 
+            StringTable.fileName = name;
             StringTable.AddEntry(pos, name);
         }
 
-        private void SaveString(BinaryWriter writer, string str)
+        private void SaveString(BinaryDataWriter writer, string str)
         {
             var ofs = writer.SaveOffset();
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ShaderLibrary.IO;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,6 @@ namespace ShaderLibrary
 {
     public interface IResData
     {
-        void Read(BinaryReader reader);
+        void Read(BinaryDataReader reader);
     }
 }
