@@ -224,6 +224,13 @@ namespace ShaderLibrary
             Console.WriteLine();
         }
 
+        public ShaderVariation GetVariation(int program_index)
+        {
+            if (program_index == -1) return null;
+
+            return this.BnshFile.Variations[this.Programs[program_index].VariationIndex];
+        }
+
         public int GetProgramIndex(Dictionary<string, string> options)
         {
             for (int i = 0; i < Programs.Count; i++)
