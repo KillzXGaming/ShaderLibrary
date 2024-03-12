@@ -39,6 +39,9 @@ namespace ShaderLibrary
             //4 = byte code data pointers
             //5 = string table
 
+            writer.RelocationTable = this.RelocationTable;
+            writer.StringTable = this.StringTable;
+
             writer.WriteSignature(_bnshsignature);
             writer.Write(0);
             writer.Write(bnsh.BinHeader.VersionMicro);
@@ -77,7 +80,7 @@ namespace ShaderLibrary
             writer.Write(new byte[40]); //reserved
 
             long shaderVarPos = writer.BaseStream.Position;
-            WriteOffset(writer, shaderVariationArrayOffset);
+            writer.WriteOffset(shaderVariationArrayOffset);
 
             RelocationTable.SaveEntry(writer,
                 (uint)writer.BaseStream.Position + 16, 2, (uint)bnsh.Variations.Count, 6, 0, "variation headers");
@@ -107,7 +110,7 @@ namespace ShaderLibrary
             //Shader programs
             for (int i = 0; i < bnsh.Variations.Count; i++)
             {
-                WriteOffset(writer, shaderVarPos + i * 64 + 16);
+                writer.WriteOffset(shaderVarPos + i * 64 + 16);
 
                 var prog = bnsh.Variations[i].BinaryProgram;
 
@@ -145,7 +148,7 @@ namespace ShaderLibrary
                 {
                     if (code == null || code.ByteCode == null) return;
 
-                    WriteOffset(writer, stageOffsets[idx]);
+                    writer.WriteOffset(stageOffsets[idx]);
 
                     writer.Write(0L); //0
                     controlCodeOffsets[idx] = writer.SaveOffset();  //Control code offset
@@ -176,7 +179,7 @@ namespace ShaderLibrary
                     prog.GeometryShaderReflection != null ||
                     prog.ComputeShaderReflection != null)
                 {
-                    WriteOffset(writer, reflectionOffset);
+                    writer.WriteOffset(reflectionOffset);
 
                     RelocationTable.SaveEntry(writer, 6, 1, 0, 0, "reflection stage offsets");
                     for (int j = 0; j < 6; j++)
@@ -204,7 +207,7 @@ namespace ShaderLibrary
                         writer.AlignBytes(8);
                         data_blocks.Add(data, writer.BaseStream.Position);
 
-                        WriteOffset(writer, controlCodeOffsets[idx]);
+                        writer.WriteOffset(controlCodeOffsets[idx]);
                         writer.Write(data);
                     }
                 }
@@ -235,7 +238,7 @@ namespace ShaderLibrary
 
                     writer.AlignBytes(8);
 
-                    WriteOffset(writer, stageReflectOffsets[j]);
+                    writer.WriteOffset(stageReflectOffsets[j]);
 
                     reflectionPointers[j] = new ReflectionPointers();
 
@@ -294,7 +297,7 @@ namespace ShaderLibrary
             writer.AlignBytes(8);
 
             //memory pool
-            WriteOffset(writer, memoryPoolOffset);
+            writer.WriteOffset(memoryPoolOffset);
 
             writer.Write(97); //mem pool property
             long binary_buffer_size = writer.BaseStream.Position;
@@ -308,7 +311,7 @@ namespace ShaderLibrary
             long memory_offset = writer.SaveOffset();
             writer.Write(new byte[40]);
 
-            WriteOffset(writer, memory_offset);
+            writer.WriteOffset(memory_offset);
             writer.Write(new byte[320]); //pool
 
             //relocation table section 0 start/end
@@ -321,7 +324,7 @@ namespace ShaderLibrary
                 var prog = bnsh.Variations[i].BinaryProgram;
 
                 writer.AlignBytes(4);
-                WriteOffset(writer, objOffsets[i]);
+                writer.WriteOffset(objOffsets[i]);
                 writer.Write(prog.MemoryData);
             }
 
@@ -339,7 +342,7 @@ namespace ShaderLibrary
 
             long data_start = writer.BaseStream.Position;
 
-            WriteOffset(writer, binary_buffer_offset);
+            writer.WriteOffset(binary_buffer_offset);
 
             Dictionary<byte[], long> code_blocks = new Dictionary<byte[], long>(new ByteArrayComparer());
 
@@ -366,7 +369,7 @@ namespace ShaderLibrary
                         writer.AlignBytes(8);
                         code_blocks.Add(data, writer.BaseStream.Position);
 
-                        WriteOffset(writer, offset_save);
+                        writer.WriteOffset(offset_save);
                         writer.Write(data);
                     }
                 }
@@ -429,22 +432,13 @@ namespace ShaderLibrary
                 {
                     //Relocate from the first entry
                     RelocationTable.SaveEntry(saver, 1, (uint)nodes.Count, 1, 5, "Dict");
-                    SaveString(saver, "");
+                    saver.SaveString("");
                 }
                 else
                 {
-                    SaveString(saver, node.Key);
+                    saver.SaveString(node.Key);
                 }
                 curNode++;
-            }
-        }
-
-        private void WriteOffset(BinaryWriter saver, long offset)
-        {
-            long pos = saver.BaseStream.Position;
-            using (saver.BaseStream.TemporarySeek(offset, System.IO.SeekOrigin.Begin))
-            {
-                saver.Write((uint)pos);
             }
         }
 
@@ -456,16 +450,6 @@ namespace ShaderLibrary
 
             StringTable.fileName = name;
             StringTable.AddEntry(pos, name);
-        }
-
-        private void SaveString(BinaryDataWriter writer, string str)
-        {
-            var ofs = writer.SaveOffset();
-
-            if (str == null)
-                return;
-
-            StringTable.AddEntry(ofs, str);
         }
     }
 
