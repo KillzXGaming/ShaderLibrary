@@ -413,35 +413,6 @@ namespace ShaderLibrary
             }
         }
 
-        private void WriteDictionary(BinaryDataWriter saver, ResDict<ResString> resDict)
-        {
-            resDict.GenerateTree();
-            var nodes = resDict.GetNodes();
-
-            saver.WriteSignature("_DIC");
-            saver.Write(nodes.Count - 1);
-
-            int curNode = 0;
-            foreach (var node in nodes)
-            {
-                saver.Write(node.Reference);
-                saver.Write(node.IdxLeft);
-                saver.Write(node.IdxRight);
-
-                if (curNode == 0) //root (empty)
-                {
-                    //Relocate from the first entry
-                    RelocationTable.SaveEntry(saver, 1, (uint)nodes.Count, 1, 5, "Dict");
-                    saver.SaveString("");
-                }
-                else
-                {
-                    saver.SaveString(node.Key);
-                }
-                curNode++;
-            }
-        }
-
         private void SaveFileNameString(BinaryWriter writer, string name)
         {
             var pos = writer.BaseStream.Position;
