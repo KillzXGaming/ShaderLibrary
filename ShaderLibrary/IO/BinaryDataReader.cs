@@ -143,7 +143,7 @@ namespace ShaderLibrary.IO
 
         public string LoadString(ulong offset)
         {
-            using (this.BaseStream.TemporarySeek((long)offset, SeekOrigin.Begin)) {
+            using (this.BaseStream.TemporarySeek((long)offset + 2, SeekOrigin.Begin)) {
                 return ReadZeroTerminatedString();
             }
         }

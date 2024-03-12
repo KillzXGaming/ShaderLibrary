@@ -58,13 +58,6 @@ namespace ShaderLibrary
         {
             stream.Position = 0;
 
-            //check to use wii u
-            if (IsWiiU(stream))
-            {
-                BfshaLoaderWiiU.Load(this, new BinaryDataReader(stream, true));
-                return;
-            }
-
             var reader = new BinaryDataReader(stream);
             stream.Read(Utils.AsSpan(ref BinHeader));
 
