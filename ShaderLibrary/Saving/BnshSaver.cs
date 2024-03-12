@@ -211,8 +211,8 @@ namespace ShaderLibrary
 
                 //binaries
                 SaveControlCode(prog.VertexShader, 0);
-             //   SaveControlCode(prog.TessellationControlShader, 1);
-             //   SaveControlCode(prog.TessellationEvaluationShader, 2);
+                SaveControlCode(prog.HullShader, 1);
+                SaveControlCode(prog.DomainShader, 2);
                 SaveControlCode(prog.GeometryShader, 3);
                 SaveControlCode(prog.FragmentShader, 4);
                 SaveControlCode(prog.ComputeShader, 5);

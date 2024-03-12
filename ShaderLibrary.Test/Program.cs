@@ -1,14 +1,13 @@
 ﻿using ShaderLibrary;
 
-BfshaFile bfsha = new BfshaFile("alRenderMaterial.bfsha");
+BfshaFile bfsha = new BfshaFile("shader.bfsha");
 
 Dictionary<string, string> options = new Dictionary<string, string>();
 
 //add bfres options from a material here
-options.Add("enable_ao", "1");
-
+options.Add("enable_shadows", "1");
 //ensure to add skin count parameter (varies by game)
-options.Add("cSkinWeightNum", "0");
+options.Add("skin_count", "0");
 
 var shader = bfsha.ShaderModels[0];
 
@@ -25,6 +24,8 @@ var pixel_control = variation.BinaryProgram.FragmentShader.ControlCode;
 
 var vertex_control = variation.BinaryProgram.VertexShader.ControlCode;
 var vertex_bytecode = variation.BinaryProgram.VertexShader.ByteCode;
+
+var refl = variation.BinaryProgram.FragmentShaderReflection.Samplers;
 
 //we can also check what samplers are used
 for (int i = 0; i < shader.Samplers.Count; i++)
@@ -50,4 +51,4 @@ for (int i = 0; i < shader.UniformBlocks.Count; i++)
     Console.WriteLine(string.Format("UniformBlock: {0}", shader.UniformBlocks.GetKey(i)));
 }
 
-bfsha.Save("alRenderMaterialRB.bfsha");
+bfsha.Save("shader_new.bfsha");
