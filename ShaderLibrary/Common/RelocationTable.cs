@@ -36,6 +36,8 @@ namespace ShaderLibrary.Common
                 writer.Write((uint)pos);
 
             writer.WriteSignature("_RLT");
+            writer._ofsEndOfBlock = writer.Position;
+
             writer.Write((uint)pos); //rlt pos
             writer.Write(Sections.Length);
             writer.Write(0); //empty
@@ -72,6 +74,9 @@ namespace ShaderLibrary.Common
 
         public void SaveEntry(BinaryWriter writer, uint offsetCount, uint structCount, uint paddingCount, uint section_idx, string hint)
         {
+            if (section_idx > Sections.Length)
+                section_idx = 0;
+
             Sections[section_idx].Entries.Add(new RelocationEntry((uint)writer.BaseStream.Position, 
                offsetCount, structCount, paddingCount, hint));
         }

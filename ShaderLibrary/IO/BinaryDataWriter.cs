@@ -15,7 +15,11 @@ namespace ShaderLibrary.IO
         public RelocationTable RelocationTable = new RelocationTable();
         public StringTable StringTable = new StringTable();
 
+        private List<long> _savedHeaderBlockPositions = new List<long>();
+
         public long Position => this.BaseStream.Position;
+
+        internal long _ofsEndOfBlock;
 
         public BinaryDataWriter(Stream input) : base(input)
         {
@@ -118,6 +122,40 @@ namespace ShaderLibrary.IO
                 return;
 
             StringTable.AddEntry(ofs, str);
+        }
+
+        internal virtual void WriteHeaderBlocks()
+        {
+            for (int i = 0; i < _savedHeaderBlockPositions.Count; i++)
+            {
+                this.BaseStream.Position = _savedHeaderBlockPositions[i];
+
+                if (i == _savedHeaderBlockPositions.Count - 1)
+                {
+                    Write(0);
+                    Write(_ofsEndOfBlock - _savedHeaderBlockPositions[i]); //Size of string table to relocation table
+                }
+                else
+                {
+                    if (i < _savedHeaderBlockPositions.Count - 1)
+                    {
+                        uint blockSize = (uint)(_savedHeaderBlockPositions[i + 1] - _savedHeaderBlockPositions[i]);
+                        WriteHeaderBlock(blockSize, blockSize);
+                    }
+                }
+            }
+        }
+
+        public void SaveHeaderBlock()
+        {
+            _savedHeaderBlockPositions.Add(Position);
+            WriteHeaderBlock(0, 0);
+        }
+
+        private void WriteHeaderBlock(uint size, ulong offset)
+        {
+            Write(size);
+            Write(offset);
         }
 
         public void AlignBytes(int align, byte pad_val = 0)

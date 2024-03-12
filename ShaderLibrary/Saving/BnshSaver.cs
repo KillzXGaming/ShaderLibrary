@@ -22,13 +22,6 @@ namespace ShaderLibrary
 
         private long _fileSizePos;
 
-        class RelocatableOffset
-        {
-            public long Position; //
-
-            public long Offset;
-        }
-
         public void Save(BnshFile bnsh, BinaryDataWriter writer)
         {
             //RLT section list as order of data written
@@ -64,8 +57,7 @@ namespace ShaderLibrary
 
             //GRSC
             writer.WriteSignature(_grscSignature);
-            writer.Write(bnsh.Header.BlockSize); //gets updated later
-            writer.Write((ulong)bnsh.Header.BlockOffset); //gets updated later
+            writer.SaveHeaderBlock();
             writer.Write(bnsh.Header.Version);
             writer.Write(bnsh.Header.CodeTarget);
             writer.Write(bnsh.Header.CompilerVersion);
@@ -403,8 +395,16 @@ namespace ShaderLibrary
                 writer.Write((uint)size); //offset to next
             }
 
+            uint stringPoolOffset = (uint)writer.Position;
+
             StringTable.Write(writer);
+
+            //relocation table section 5 start/end
+            RelocationTable.SetRelocationSection(5, (uint)stringPoolOffset, (uint)writer.BaseStream.Position - stringPoolOffset);
+
             RelocationTable.Write(writer);
+
+            writer.WriteHeaderBlocks();
 
             //file size
             using (writer.BaseStream.TemporarySeek(this._fileSizePos, SeekOrigin.Begin))

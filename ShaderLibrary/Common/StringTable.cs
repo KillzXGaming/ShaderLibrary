@@ -40,15 +40,24 @@ namespace ShaderLibrary.Common
             writer.AlignBytes(8);
 
             // Sort the strings ordinally.
-            SortedList<string, StringEntry> sorted = new SortedList<string, StringEntry>();
+            SortedList<string, StringEntry> sorted = new SortedList<string, StringEntry>(ResStringComparer.Instance);
             foreach (KeyValuePair<string, StringEntry> entry in _savedStrings)
+            {
+                if (entry.Key == "dummy")
+                    continue;
                 sorted.Add(entry.Key, entry.Value);
+            }
 
             long start_pos = writer.BaseStream.Position;
 
             writer.WriteSignature("_STR");
-            writer.Write(0);
-            writer.Write(0UL);
+            writer.SaveHeaderBlock();
+            writer.Write(sorted.Count);
+
+            writer.Write((short)fileName.Length);
+            writer.Write(Encoding.UTF8.GetBytes(fileName));
+            writer.Write((byte)0);
+            writer.AlignBytes(4);
 
             foreach (KeyValuePair<string, StringEntry> entry in sorted)
             {
@@ -58,10 +67,7 @@ namespace ShaderLibrary.Common
                 {
                     using (writer.BaseStream.TemporarySeek(p, SeekOrigin.Begin))
                     {
-                        if (entry.Key == fileName)
-                            writer.Write((uint)pos + 2); //filename points after length
-                        else 
-                            writer.Write((uint)pos);
+                        writer.Write((uint)pos);
                     }
                 }
 
@@ -74,17 +80,8 @@ namespace ShaderLibrary.Common
                 writer.AlignBytes(4);
             }
 
-            writer.AlignBytes(8);
-
             long end_pos = writer.BaseStream.Position;
             long size = end_pos - start_pos;
-
-            //block sizes
-            using (writer.BaseStream.TemporarySeek(start_pos + 4, SeekOrigin.Begin))
-            {
-                writer.Write((uint)size);
-                writer.Write((uint)size);
-            }
         }
 
         class StringEntry

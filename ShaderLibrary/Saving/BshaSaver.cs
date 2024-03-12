@@ -17,7 +17,7 @@ namespace ShaderLibrary
 
         private const string _bfshasignature = "FSHA";
 
-        public RelocationTable RelocationTable = new RelocationTable();
+        public RelocationTable RelocationTable = new RelocationTable(2);
         public StringTable StringTable = new StringTable();
 
         private long _fileSizePos;
@@ -273,8 +273,10 @@ namespace ShaderLibrary
                 writer.AlignBytes(8);
                 writer.WriteOffset(ofs_list.uniform_offset);
 
-                RelocationTable.SaveEntry(writer, 1,
-                   (uint)model.UniformBlocks.Values.Sum(x => x.Uniforms.Count), 1, 0, "Uniform Vars");
+                var num_uniforms =
+                   (uint)model.UniformBlocks.Values.Sum(x => x.Uniforms.Count);
+
+                RelocationTable.SaveEntry(writer, 1, num_uniforms, 1, 0, "Uniform Vars");
 
                 foreach (var uniformBlocks in model.UniformBlocks.Values)
                 {
@@ -531,9 +533,8 @@ namespace ShaderLibrary
 
             RelocationTable.SetRelocationSection(1, (uint)pos2, (uint)(writer.BaseStream.Position - pos2));
 
-
-            StringTable.Write(writer);
             RelocationTable.Write(writer);
+            writer.WriteHeaderBlocks();
 
             //file size
             using (writer.BaseStream.TemporarySeek(this._fileSizePos, SeekOrigin.Begin))
