@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Linq;
+using System.Text;
 using ShaderLibrary;
 using ShaderLibrary.CompileTool;
 
@@ -14,7 +16,15 @@ namespace EffectLibraryTest
             File.WriteAllText(filePath, GetCode(shaderCode));
         }
 
-        static string GetCode(BnshFile.ShaderCode shaderCode)
+        public static void Export(BnshFile.ShaderCode shaderCode, BnshFile.ShaderReflectionData reflect, string filePath)
+        {
+            if (shaderCode == null)
+                return;
+
+            File.WriteAllText(filePath, GetCode(shaderCode, reflect));
+        }
+
+        static string GetCode(BnshFile.ShaderCode shaderCode, BnshFile.ShaderReflectionData reflect = null)
         {
             var control_code = new ControlShader(shaderCode.ControlCode);
 
@@ -25,7 +35,82 @@ namespace EffectLibraryTest
             code = ApplyConstants(code, constants);
             code = FixLocations(code);
 
+            if (reflect != null)
+                code = SetReflectionNames(code, reflect);
+
             return code;
+        }
+
+        static string SetReflectionNames(string code, BnshFile.ShaderReflectionData reflect)
+        {
+            Dictionary<string, string> symbols = new Dictionary<string, string>();
+            foreach (var sampler in reflect.Samplers.Keys)
+            {
+                int location = reflect.GetSamplerLocation(sampler);
+                if (location == -1)
+                    continue;
+
+                string glsl_string_vertex = "vp_t_tcb_" + ((location * 2) + 8).ToString("X1");
+                string glsl_string_pixel  = "fp_t_tcb_" + ((location * 2) + 8).ToString("X1");
+                symbols.Add(glsl_string_vertex, sampler);
+                symbols.Add(glsl_string_pixel, sampler);
+            }
+
+            foreach (var name in reflect.ConstantBuffers.Keys)
+            {
+                int location = reflect.GetConstantBufferLocation(name);
+                if (location == -1)
+                    continue;
+
+                string glsl_string_cbuff = $"_fp_c{((location) + 3).ToString("X1")}";
+                symbols.Add(glsl_string_cbuff, name);
+            }
+
+            foreach (var name in reflect.Inputs.Keys)
+            {
+                int location = reflect.GetInputLocation(name);
+                if (location == -1)
+                    continue;
+
+                string glsl_string_input = $"in_attr{location}";
+                symbols.Add(glsl_string_input, name);
+            }
+
+            foreach (var name in reflect.Outputs.Keys)
+            {
+                int location = reflect.GetOutputLocation(name);
+                if (location == -1)
+                    continue;
+
+                string glsl_string_output = $"out_attr{location}";
+                symbols.Add(glsl_string_output, name);
+            }
+
+            string line;
+
+            var sb = new StringBuilder();
+            using (StringReader reader = new StringReader(code))
+            {
+                do
+                {
+                    line = reader.ReadLine();
+
+                    if (line != null)
+                    {
+                        //input sampler
+                        foreach (var sampler in symbols)
+                        {
+                            if (line.Contains(sampler.Key))
+                                line = line.Replace(sampler.Key, sampler.Value);
+                        }
+                        sb.AppendLine(line);
+                    }
+
+                } while (line != null);
+            }
+
+
+            return sb.ToString();
         }
 
         static string FixLocations(string code)
@@ -62,6 +147,15 @@ namespace EffectLibraryTest
                         //input block
                         if (line.Contains("std140) uniform") && line.Contains("_c"))
                         {
+                            if (line.Contains("_fp_c1")) //remove constant buffer as the extractor loads these directly
+                            {
+                                //skip cbuffer lines
+                                reader.ReadLine();
+                                reader.ReadLine();
+                                reader.ReadLine();
+                                continue;
+                            }
+
                             //get the id in hex
                             string id = line.Split("_c").LastOrDefault().Replace(";", "");
                             int slot = Convert.ToInt32(id);

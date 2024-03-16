@@ -49,8 +49,8 @@ namespace ShaderLibrary.Test
 
 
             //extract test
-            ShaderExtract.Export(vert, "Vertex.vert");
-            ShaderExtract.Export(frag, "Pixel.frag");
+            ShaderExtract.Export(vert, program.VertexShaderReflection, "Vertex.vert");
+            ShaderExtract.Export(frag, program.FragmentShaderReflection, "Pixel.frag");
 
             //replace and compile test
             UAMShaderCompiler.Compile(vert, "Vertex.vert", "vert");
