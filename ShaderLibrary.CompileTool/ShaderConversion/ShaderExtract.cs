@@ -150,7 +150,7 @@ namespace EffectLibraryTest
                         //input block
                         if (line.Contains("std140) uniform") && line.Contains("_c"))
                         {
-                            if (line.Contains("_fp_c1")) //remove constant buffer as the extractor loads these directly
+                            if (line.EndsWith("_fp_c1")) //remove constant buffer as the extractor loads these directly
                             {
                                 //skip cbuffer lines
                                 reader.ReadLine();
