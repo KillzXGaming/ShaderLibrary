@@ -56,6 +56,14 @@ layout (binding = 1, std140) uniform GsysMaterial
 	float material_lod_metalness;
 };
 
+layout (binding = 0) uniform sampler2D cTextureBaseColor;
+layout (binding = 1) uniform sampler2D cTextureNormal;
+layout (binding = 2) uniform sampler2D cTextureUniform0;
+layout (binding = 3) uniform sampler2D cTextureUniform1;
+layout (binding = 4) uniform sampler2D cTextureUniform2;
+layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
+layout (binding = 22) uniform sampler2D cTextureMaterialLightSphere;
+
 layout (location = 0) in vec4 fPositions;
 layout (location = 1) in vec4 fTexCoords0;
 layout (location = 2) in vec4 fTangents;
@@ -75,5 +83,5 @@ void main()
 
     oNormalizedLinearDepth.r = fPositions.w;
 
-	oBaseColor = vec4(1.0);
+	oBaseColor = texture(cTextureBaseColor, fTexCoords0.xy);
 }
