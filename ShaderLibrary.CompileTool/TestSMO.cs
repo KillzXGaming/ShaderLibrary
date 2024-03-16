@@ -49,25 +49,8 @@ namespace ShaderLibrary.CompileTool
             Material material = model.Materials[shape.MaterialIndex];
             var shader = bfsha.ShaderModels[material.ShaderAssign.ShadingModelName];
 
-            //All options in relation to the material
-            Dictionary<string, string> options = new Dictionary<string, string>();
-            foreach (var op in material.ShaderAssign.ShaderOptions)
-                options.Add(op.Key, op.Value);
-
-            options["cSkinWeightNum"] = shape.VertexSkinCount.ToString(); //skin count
-
-            //render info configures options of compiled shaders (alpha testing and render state)
-            var renderMode = material.GetRenderInfoString("gsys_render_state_mode");
-            var alphaTest = material.GetRenderInfoString("gsys_alpha_test_enable");
-
-            if (options.ContainsKey("gsys_renderstate"))
-                options["gsys_renderstate"] = RenderStateModes[renderMode];
-
-            if (options.ContainsKey("gsys_alpha_test_enable"))
-                options["gsys_alpha_test_enable"] = alphaTest == "true" ? "1" : "0";
-
             //get all programs related to the material
-            var programIdxList = shader.GetProgramIndexList(options);
+            var programIdxList = shader.GetProgramIndexList(GetMaterialOptions(material, shape));
 
             //export test
             bfsha.ExportProgram("CustomShader.bfsha", shader, programIdxList.ToArray());
@@ -88,11 +71,8 @@ namespace ShaderLibrary.CompileTool
         {
             var material = model.Materials[shape.MaterialIndex];
 
-            Dictionary<string, string> options = new Dictionary<string, string>();
-            foreach (var op in material.ShaderAssign.ShaderOptions)
-                options.Add(op.Key, op.Value);
+            Dictionary<string, string> options = GetMaterialOptions(material, shape);
 
-            options["cSkinWeightNum"] = shape.VertexSkinCount.ToString(); //skin count
             //dynamic options not in bfres
             options.Add("enable_compose_footprint", "0");
             options.Add("enable_compose_capture", "0");
@@ -103,6 +83,18 @@ namespace ShaderLibrary.CompileTool
             options.Add("material_lod_level", "0");
             options.Add("system_id", "0");
 
+            return options;
+        }
+
+        //All option combinations in relation to the material itself
+        static Dictionary<string, string> GetMaterialOptions(Material material, Shape shape)
+        {
+            Dictionary<string, string> options = new Dictionary<string, string>();
+            foreach (var op in material.ShaderAssign.ShaderOptions)
+                options.Add(op.Key, op.Value);
+
+            options["cSkinWeightNum"] = shape.VertexSkinCount.ToString(); //skin count
+
             //render info configures options of compiled shaders (alpha testing and render state)
             var renderMode = material.GetRenderInfoString("gsys_render_state_mode");
             var alphaTest = material.GetRenderInfoString("gsys_alpha_test_enable");
@@ -112,7 +104,6 @@ namespace ShaderLibrary.CompileTool
 
             if (options.ContainsKey("gsys_alpha_test_enable"))
                 options["gsys_alpha_test_enable"] = alphaTest == "true" ? "1" : "0";
-
             return options;
         }
 
