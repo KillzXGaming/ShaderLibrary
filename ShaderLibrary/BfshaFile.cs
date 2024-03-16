@@ -75,7 +75,10 @@ namespace ShaderLibrary
             reader.ReadUInt32();
             reader.ReadUInt64();
             if (reader.Header.VersionMajor >= 7)
-                reader.ReadUInt64(); //padding
+            {
+                if (reader.ReadUInt64() != 0) //padding
+                    throw new Exception();
+            }
 
             ushort ModelCount = reader.ReadUInt16();
             ushort flag = reader.ReadUInt16();
@@ -234,6 +237,17 @@ namespace ShaderLibrary
             return -1;
         }
 
+        public List<int> GetProgramIndexList(Dictionary<string, string> options)
+        {
+            List<int> indices = new List<int>();
+            for (int i = 0; i < Programs.Count; i++)
+            {
+                if (IsValidProgram(i, options))
+                    indices.Add(i);
+            }
+            return indices;
+        }
+
         public bool IsValidProgram(int programIndex, Dictionary<string, string> options)
         {
             //The amount of keys used per program
@@ -276,6 +290,118 @@ namespace ShaderLibrary
                     return false;
             }
             return true;
+        }
+
+        public void CreateAddNewShaderProgram(ShaderVariation variation, Dictionary<string, string> options)
+        {
+            var program = new ShaderProgram();
+            program.VariationIndex = this.BnshFile.Variations.IndexOf(variation);
+
+            //Init locations
+            //TODO add arguments with used bindings
+
+            for (int i = 0; i < this.Samplers.Count; i++)
+                program.SamplerIndices.Add(new ShaderIndexHeader());
+
+            for (int i = 0; i < this.UniformBlocks.Count; i++)
+                program.SamplerIndices.Add(new ShaderIndexHeader());
+
+            for (int i = 0; i < this.StorageBuffers.Count; i++)
+                program.SamplerIndices.Add(new ShaderIndexHeader());
+
+            for (int i = 0; i < this.Attributes.Count; i++)
+                program.SetAttribute(i, false);
+
+            //expand key table
+            int[] program_keys = new int[this.StaticKeyLength + this.DynamicKeyLength];
+            KeyTable = KeyTable.Concat(program_keys).ToArray();
+
+            var programIndex = this.Programs.Count;
+            this.Programs.Add(program);
+
+            //Set option combinations required to use the program
+            SetProgramOptions(programIndex, options);
+        }
+
+        public void SetProgramOptions(int programIndex, Dictionary<string, string> options)
+        {
+            foreach (var staticOption in StaticOptions.Values)
+            {
+                string choice = staticOption.DefaultChoice;
+
+                if (options.ContainsKey(staticOption.Name))
+                    choice = options[staticOption.Name];
+
+                SetOptionKey(staticOption, choice, programIndex); 
+            }
+            foreach (var dynamicOption in DynamicOptions.Values)
+            {
+                string choice = dynamicOption.DefaultChoice;
+
+                if (options.ContainsKey(dynamicOption.Name))
+                    choice = options[dynamicOption.Name];
+
+                SetOptionKey(dynamicOption, choice, programIndex);
+            }
+        }
+
+        public void SetOptionKey(ShaderOption option, string choice, int programIdx)
+        {
+            //in theory the static options should not share any of the dynamic options
+            //for the sake of convience, check by shader option name to tell if it is dynamic
+            bool is_dynamic = this.DynamicOptions.ContainsKey(option.Name);
+
+            //The amount of keys used per program
+            int numKeysPerProgram = this.StaticKeyLength + this.DynamicKeyLength;
+
+            //Static key (total * program index)
+            int baseIndex = numKeysPerProgram * programIdx;
+            //current choice
+            int choiceIndex = option.Choices.Keys.ToList().IndexOf(choice);
+            if (choiceIndex == -1)
+                throw new Exception($"Invalid choice input ({choice}) for {option.Name}!");
+
+            int key_idx = baseIndex + option.Bit32Index - (is_dynamic ? option.KeyOffset : 0);
+
+            option.SetKey(ref this.KeyTable[key_idx], choiceIndex);
+
+            var new_choiceIdx = option.GetChoiceIndex(this.KeyTable[baseIndex + option.Bit32Index]);
+            if (new_choiceIdx != choiceIndex)
+                throw new Exception("Failed to set choice index!");
+        }
+
+        /// <summary>
+        /// Prints specificed program keys from the given index.
+        /// </summary>
+        /// <param name="programIndex"></param>
+        public void PrintProgramKeys(int programIndex)
+        {
+            Console.WriteLine($"--------------------------------------------------------");
+
+            int numKeysPerProgram = StaticKeyLength + DynamicKeyLength;
+
+            var maxBit = this.StaticOptions.Values.Max(x => x.Bit32Index);
+            int baseIndex = numKeysPerProgram * programIndex;
+            for (int j = 0; j < this.StaticOptions.Count; j++)
+            {
+                var option = this.StaticOptions[j];
+                int choiceIndex = option.GetChoiceIndex(KeyTable[baseIndex + option.Bit32Index]);
+                if (choiceIndex > option.Choices.Count || choiceIndex == -1)
+                    throw new Exception($"Invalid choice index in key table! {option.Name} index {choiceIndex}");
+
+                Console.WriteLine($"{option.Name} = {option.Choices.GetKey(choiceIndex)}");
+            }
+
+            for (int j = 0; j < this.DynamicOptions.Count; j++)
+            {
+                var option = this.DynamicOptions[j];
+                int ind = option.Bit32Index - option.KeyOffset;
+                int choiceIndex = option.GetChoiceIndex(KeyTable[baseIndex + StaticKeyLength + ind]);
+                if (choiceIndex > option.Choices.Count || choiceIndex == -1)
+                    throw new Exception($"Invalid choice index in key table! {option.Name} index {choiceIndex}");
+
+                Console.WriteLine($"{option.Name} = {option.Choices.GetKey(choiceIndex)}");
+            }
         }
     }
 
@@ -357,6 +483,8 @@ namespace ShaderLibrary
         internal long _choiceDictOfsPos;
         internal long _choiceValuesOfsPos;
 
+        public string DefaultChoice => Choices.Keys.FirstOrDefault();
+
         public void Read(BinaryDataReader reader)
         {
             Name = reader.LoadString();
@@ -398,6 +526,15 @@ namespace ShaderLibrary
             return (int)((key & this.Bit32Mask) >> this.Bit32Shift);
         }
 
+        public void SetKey(ref int key, int choiceIdx)
+        {
+            key = (int)((choiceIdx << this.Bit32Shift) & this.Bit32Mask);
+            //verify
+            var new_choiceIdx = GetChoiceIndex(key);
+            if (new_choiceIdx != choiceIdx)
+                throw new Exception();
+        }
+
         public int GetStaticKey()
         {
             var key = this.Bit32Index;
@@ -418,6 +555,11 @@ namespace ShaderLibrary
         public void Read(BinaryDataReader reader)
         {
             Value = reader.ReadUInt32();
+        }
+
+        public override string ToString()
+        {
+            return Value.ToString();
         }
     }
 
@@ -531,6 +673,19 @@ namespace ShaderLibrary
         internal long _shaderVariationOfsPos;
         internal long _imageTableOfsPos;
         internal long _storageBlockTableOfsPos;
+
+        public bool IsAttributeUsed(int index)
+        {
+            return (UsedAttributeFlags >> index & 0x1) != 0;
+        }
+
+        public void SetAttribute(int index, bool bind)
+        {
+            if (bind)
+                UsedAttributeFlags |= (1u << index);
+            else
+                UsedAttributeFlags &= ~(1u << index);
+        }
 
         public void Read(BinaryDataReader reader)
         {
