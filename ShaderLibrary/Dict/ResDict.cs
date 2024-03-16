@@ -68,6 +68,10 @@ namespace ShaderLibrary
         {
             // Update the Patricia trie values in the nodes.
             var newNodes = ResDictUpdate.UpdateNodes(Keys.ToList());
+
+            if (_nodes.Count != newNodes.Length)
+                _nodes = newNodes.Select(_ => new Node()).ToList();
+
             for (int i = 0; i < _nodes.Count; i++)
             {
                 _nodes[i].Reference = newNodes[i].Reference;

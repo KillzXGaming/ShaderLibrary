@@ -84,6 +84,92 @@ namespace ShaderLibrary
             ushort flag = reader.ReadUInt16();
             reader.ReadUInt16();
         }
+
+        public void ExportProgram(string filePath, ShaderModel shader, params ShaderProgram[] programs)
+        {
+            var programIndices = programs.Select(x => shader.Programs.IndexOf(x)).ToList();
+            ExportProgram(filePath, shader, programIndices.ToArray());
+        }
+
+        public void ExportProgram(string filePath, ShaderModel shader, params int[] programIndices)
+        {
+            //Export as a seperate usable bfsha binary
+
+            var programs = programIndices.Select(x => shader.Programs[x]).ToList();
+
+            string name = System.IO.Path.GetFileNameWithoutExtension(filePath);
+
+            BfshaFile bfsha = new BfshaFile()
+            {
+                BinHeader = BinHeader,
+                Name = name,
+                Path = this.Path,
+            };
+            List<int> search_keys = new List<int>();
+
+            //go through the key table and get the option keys used for the specific programs
+            var num_keys = shader.StaticKeyLength + shader.DynamicKeyLength;
+            for (int i = 0; i < programIndices.Length; i++)
+            {
+                var key_idx = num_keys * programIndices[i];
+                for (int j = 0; j < num_keys; j++)
+                    search_keys.Add(shader.KeyTable[key_idx + j]);
+            }
+
+            BnshFile bnsh = new BnshFile()
+            {
+                BinHeader = shader.BnshFile.BinHeader,
+                Name = shader.BnshFile.Name,
+                Header = shader.BnshFile.Header,
+                Variations = new List<ShaderVariation>(),
+            };
+
+            List<ShaderProgram> exported_programs = new List<ShaderProgram>();
+
+            foreach (var prog in programs)
+            {
+                //Setup program
+                exported_programs.Add(new ShaderProgram()
+                {
+                    UsedAttributeFlags = prog.UsedAttributeFlags,
+                    Flags = prog.Flags,
+                    ImageIndices = prog.ImageIndices,
+                    SamplerIndices = prog.SamplerIndices,
+                    UniformBlockIndices = prog.UniformBlockIndices,
+                    StorageBufferIndices = prog.StorageBufferIndices,
+                    VariationIndex = bnsh.Variations.Count,
+                });
+                //add variation from the bnsh to newly made one
+                bnsh.Variations.Add(shader.BnshFile.Variations[prog.VariationIndex]);
+            }
+
+            ShaderModel export_shader = new ShaderModel()
+            {
+                DynamicKeyLength = shader.DynamicKeyLength,
+                StaticKeyLength = shader.StaticKeyLength,
+                Samplers = shader.Samplers,
+                Attributes = shader.Attributes,
+                SymbolData = shader.SymbolData,
+                StaticOptions = shader.StaticOptions,
+                DynamicOptions = shader.DynamicOptions,
+                StorageBuffers = shader.StorageBuffers,
+                UniformBlocks = shader.UniformBlocks,
+                Images = shader.Images,
+                DefaultProgramIndex = -1,
+                KeyTable = search_keys.ToArray(),
+                Name = name,
+                Unknown2 = shader.Unknown2,
+                UnknownIndices = shader.UnknownIndices,
+                UnknownIndices2 = shader.UnknownIndices2,
+                BnshFile = bnsh,
+                Programs = exported_programs,
+            };
+            bfsha.ShaderModels.Add(export_shader.Name, export_shader);
+
+            bfsha.Save(filePath);
+
+            new BfshaFile(filePath);
+        }
     }
 
     public class ShaderModel : IResData
