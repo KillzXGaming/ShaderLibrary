@@ -10,7 +10,7 @@ namespace ShaderLibrary.CompilerTool
     {
         public static void Main(string[] args)
         {
-            TestBNSH.Run();
+            TestSMO.Run();
         }
     }
 }

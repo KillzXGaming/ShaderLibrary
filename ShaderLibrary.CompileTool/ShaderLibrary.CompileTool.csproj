@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <Reference Include="BfresLibrary">
-      <HintPath>Libs\BfresLibrary.dll</HintPath>
+      <HintPath>Libs\Bfres\BfresLibrary.dll</HintPath>
     </Reference>
     <Reference Include="Ryujinx.Common">
       <HintPath>Libs\Ryujinx.Common.dll</HintPath>
@@ -25,13 +25,13 @@
       <HintPath>Libs\Spv.Generator.dll</HintPath>
     </Reference>
     <Reference Include="Syroot.BinaryData">
-      <HintPath>Libs\Syroot.BinaryData.dll</HintPath>
+      <HintPath>Libs\Bfres\Syroot.BinaryData.dll</HintPath>
     </Reference>
     <Reference Include="Syroot.Maths">
-      <HintPath>Libs\Syroot.Maths.dll</HintPath>
+      <HintPath>Libs\Bfres\Syroot.Maths.dll</HintPath>
     </Reference>
     <Reference Include="Syroot.NintenTools.NSW.Bntx">
-      <HintPath>Libs\Syroot.NintenTools.NSW.Bntx.dll</HintPath>
+      <HintPath>Libs\Bfres\Syroot.NintenTools.NSW.Bntx.dll</HintPath>
     </Reference>
   </ItemGroup>
 
