@@ -189,6 +189,38 @@ namespace ShaderLibrary
 
                 reader.SeekBegin(pos);
             }
+
+            public int GetInputLocation(string key)
+            {
+                 var index = this.Inputs.Keys.ToList().IndexOf(key);
+                if (Slots.Length > index)
+                    return Slots[index];
+                return -1;
+            }
+
+            public int GetConstantBufferLocation(string key)
+            {
+                var index = this.Inputs.Keys.ToList().IndexOf(key);
+                if (Slots.Length > index + this.header.ConstBufferIdx)
+                    return Slots[index + this.header.ConstBufferIdx];
+                return -1;
+            }
+
+            public int GetSamplerLocation(string key)
+            {
+                var index = this.Samplers.Keys.ToList().IndexOf(key);
+                if (Slots.Length > index + this.header.SamplerIdx)
+                    return Slots[index + this.header.SamplerIdx];
+                return -1;
+            }
+
+            public int GetOutputLocation(string key)
+            {
+                var index = this.Outputs.Keys.ToList().IndexOf(key);
+                if (Slots.Length > index + this.header.OutputIdx)
+                    return Slots[index + this.header.OutputIdx];
+                return -1;
+            }
         }
     }
 }

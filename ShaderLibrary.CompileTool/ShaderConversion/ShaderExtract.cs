@@ -8,6 +8,9 @@ namespace EffectLibraryTest
     {
         public static void Export(BnshFile.ShaderCode shaderCode, string filePath)
         {
+            if (shaderCode == null)
+                return;
+
             File.WriteAllText(filePath, GetCode(shaderCode));
         }
 

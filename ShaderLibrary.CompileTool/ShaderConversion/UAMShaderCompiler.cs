@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static ShaderLibrary.BnshFile;
 
 namespace ShaderLibrary.CompileTool
 {
@@ -11,6 +12,9 @@ namespace ShaderLibrary.CompileTool
     {
         public static ShaderOutput Compile(BnshFile.ShaderCode binary, string shadername, string kind)
         {
+            if (binary == null)
+                return null;
+
             //load the original control shader
             var control = new ControlShader(binary.ControlCode);
             //Get the original constants
