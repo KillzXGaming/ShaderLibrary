@@ -34,12 +34,12 @@ namespace ShaderLibrary.CompileTool
             var program = FindShaderProgram(bfsha, model, model.Shapes[0]);
 
             //extract the shader
-            ShaderExtract.Export(program.VertexShader, program.VertexShaderReflection, "Vertex.vert");
-            ShaderExtract.Export(program.FragmentShader, program.FragmentShaderReflection, "Pixel.frag");
+           // ShaderExtract.Export(program.VertexShader, program.VertexShaderReflection, "Vertex.vert");
+          //  ShaderExtract.Export(program.FragmentShader, program.FragmentShaderReflection, "Pixel.frag");
 
             //Recompile test
-            UAMShaderCompiler.Compile(program.VertexShader, "Vertex.vert", "vert");
-            UAMShaderCompiler.Compile(program.FragmentShader, "Pixel.frag", "frag");
+            UAMShaderCompiler.Compile(program.VertexShader, $"SMO/Vertex.vert", "vert");
+            UAMShaderCompiler.Compile(program.FragmentShader, "SMO/Pixel.frag", "frag");
 
             bfsha.Save("alRenderMaterialRB.bfsha");
         }
@@ -64,7 +64,7 @@ namespace ShaderLibrary.CompileTool
 
             var programIdx = shader.GetProgramIndex(GetOptionSearch(model, shape, motion_vec));
 
-            return bfsha.ShaderModels[0].GetVariation(programIdx).BinaryProgram;
+            return shader.GetVariation(programIdx).BinaryProgram;
         }
 
         static Dictionary<string, string> GetOptionSearch(Model model, Shape shape, string motion_vec)
