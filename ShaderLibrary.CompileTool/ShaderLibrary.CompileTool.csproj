@@ -8,16 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Shaders\SMO\Pixel.frag" />
-    <None Remove="Shaders\SMO\Vertex.vert" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Include="Shaders\SMO\Pixel.frag" />
-    <Page Include="Shaders\SMO\Vertex.vert" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\ShaderLibrary\ShaderLibrary.csproj" />
   </ItemGroup>
 
@@ -56,6 +46,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="README.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Shaders\SMO\Pixel.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Shaders\SMO\Vertex.vert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="uam.exe">

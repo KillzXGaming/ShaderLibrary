@@ -27,9 +27,6 @@ namespace ShaderLibrary.CompileTool
             //get model and find the shader for the given mesh
             var model = resFile.Models[0];
 
-            //export as bfsha test
-            ShaderExportTest(bfsha, model, model.Shapes[0]);
-
             //program edit test
             var program = FindShaderProgram(bfsha, model, model.Shapes[0]);
 
@@ -38,8 +35,11 @@ namespace ShaderLibrary.CompileTool
           //  ShaderExtract.Export(program.FragmentShader, program.FragmentShaderReflection, "Pixel.frag");
 
             //Recompile test
-            UAMShaderCompiler.Compile(program.VertexShader, $"SMO/Vertex.vert", "vert");
-            UAMShaderCompiler.Compile(program.FragmentShader, "SMO/Pixel.frag", "frag");
+            UAMShaderCompiler.Compile(program.VertexShader, $"Shaders/SMO/Vertex.vert", "vert");
+            UAMShaderCompiler.Compile(program.FragmentShader, "Shaders/SMO/Pixel.frag", "frag");
+
+            //export as bfsha test
+            ShaderExportTest(bfsha, model, model.Shapes[0]);
 
             bfsha.Save("alRenderMaterialRB.bfsha");
         }

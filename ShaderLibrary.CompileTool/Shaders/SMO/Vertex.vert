@@ -11,6 +11,11 @@
 
 const int MAX_BONE_COUNT = 100;
 
+layout (binding = 4, std140) uniform MdlMtx
+{
+    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
+};
+
 layout (binding = 2, std140) uniform MdlEnvView
 {
     mat3x4 cView;
@@ -75,24 +80,19 @@ layout (binding = 1, std140) uniform GsysMaterial
 	float material_lod_metalness;
 };
 
-layout (binding = 4, std140) uniform MdlMtx
-{
-    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
-};
-
 layout (location = 0) in vec4 vPosition;
 layout (location = 1) in vec4 vNormal;
 layout (location = 2) in vec4 vColor;
 layout (location = 3) in vec4 vTangent;
-layout (location = 8) in vec4 vBitangent;
 layout (location = 4) in vec4 vTexCoords0;
 layout (location = 5) in vec4 vTexCoords1;
 layout (location = 6) in vec4 vTexCoords2;
+layout (location = 8) in vec4 vBitangent;
 layout (location = 10) in vec4 vBoneWeight;
 layout (location = 11) in ivec4 vBoneIndices;
 
 
-layout (location = 1) out vec4 fPositions;
+layout (location = 0) out vec4 fPositions;
 layout (location = 1) out vec4 fTexCoords0;
 layout (location = 2) out vec4 fTangents;
 layout (location = 3) out vec4 fNormals;
