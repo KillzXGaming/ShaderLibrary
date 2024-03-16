@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShaderLibrary\ShaderLibrary.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BfresLibrary">
+      <HintPath>Libs\BfresLibrary.dll</HintPath>
+    </Reference>
+    <Reference Include="Ryujinx.Common">
+      <HintPath>Libs\Ryujinx.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Ryujinx.Graphics.Shader">
+      <HintPath>Libs\Ryujinx.Graphics.Shader.dll</HintPath>
+    </Reference>
+    <Reference Include="Spv.Generator">
+      <HintPath>Libs\Spv.Generator.dll</HintPath>
+    </Reference>
+    <Reference Include="Syroot.BinaryData">
+      <HintPath>Libs\Syroot.BinaryData.dll</HintPath>
+    </Reference>
+    <Reference Include="Syroot.Maths">
+      <HintPath>Libs\Syroot.Maths.dll</HintPath>
+    </Reference>
+    <Reference Include="Syroot.NintenTools.NSW.Bntx">
+      <HintPath>Libs\Syroot.NintenTools.NSW.Bntx.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="libszs.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Libs\Ryujinx License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Libs\UAM License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="README.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="uam.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
