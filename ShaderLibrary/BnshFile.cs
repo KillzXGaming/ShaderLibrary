@@ -200,7 +200,7 @@ namespace ShaderLibrary
 
             public int GetConstantBufferLocation(string key)
             {
-                var index = this.Inputs.Keys.ToList().IndexOf(key);
+                var index = this.ConstantBuffers.Keys.ToList().IndexOf(key);
                 if (Slots.Length > index + this.header.ConstBufferIdx)
                     return Slots[index + this.header.ConstBufferIdx];
                 return -1;
