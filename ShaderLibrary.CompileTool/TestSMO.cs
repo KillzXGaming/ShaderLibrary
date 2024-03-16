@@ -1,5 +1,6 @@
 ﻿using BfresLibrary;
 using EffectLibraryTest;
+using ShaderLibrary.CompilerTool;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,6 +26,11 @@ namespace ShaderLibrary.CompileTool
 
             //get model and find the shader for the given mesh
             var model = resFile.Models[0];
+
+            //export as bfsha test
+            ShaderExportTest(bfsha, model, model.Shapes[0]);
+
+            //program edit test
             var program = FindShaderProgram(bfsha, model, model.Shapes[0]);
 
             //extract the shader
@@ -36,6 +42,35 @@ namespace ShaderLibrary.CompileTool
             UAMShaderCompiler.Compile(program.FragmentShader, "Pixel.frag", "frag");
 
             bfsha.Save("alRenderMaterialRB.bfsha");
+        }
+
+        static void ShaderExportTest(BfshaFile bfsha, Model model, Shape shape, string motion_vec = "0")
+        {
+            Material material = model.Materials[shape.MaterialIndex];
+            var shader = bfsha.ShaderModels[material.ShaderAssign.ShadingModelName];
+
+            //All options in relation to the material
+            Dictionary<string, string> options = new Dictionary<string, string>();
+            foreach (var op in material.ShaderAssign.ShaderOptions)
+                options.Add(op.Key, op.Value);
+
+            options["cSkinWeightNum"] = shape.VertexSkinCount.ToString(); //skin count
+
+            //render info configures options of compiled shaders (alpha testing and render state)
+            var renderMode = material.GetRenderInfoString("gsys_render_state_mode");
+            var alphaTest = material.GetRenderInfoString("gsys_alpha_test_enable");
+
+            if (options.ContainsKey("gsys_renderstate"))
+                options["gsys_renderstate"] = RenderStateModes[renderMode];
+
+            if (options.ContainsKey("gsys_alpha_test_enable"))
+                options["gsys_alpha_test_enable"] = alphaTest == "true" ? "1" : "0";
+
+            //get all programs related to the material
+            var programIdxList = shader.GetProgramIndexList(options);
+
+            //export test
+            bfsha.ExportProgram("CustomShader.bfsha", shader, programIdxList.ToArray());
         }
 
         static BnshFile.BnshShaderProgram FindShaderProgram(BfshaFile bfsha, Model model, Shape shape, string motion_vec = "0")
