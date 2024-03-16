@@ -62,11 +62,11 @@ namespace EffectLibraryTest
                 if (location == -1)
                     continue;
 
-                symbols.Add($"_fp_c{((location) + 3).ToString("X1")}", $"_{name}");
-                symbols.Add($"_vp_c{((location) + 3).ToString("X1")}", $"_{name}");
+                symbols.Add($"_fp_c{((location) + 3)}", $"_{name}");
+                symbols.Add($"_vp_c{((location) + 3)}", $"_{name}");
 
-                symbols.Add($"fp_c{((location) + 3).ToString("X1")}", name);
-                symbols.Add($"vp_c{((location) + 3).ToString("X1")}", name);
+                symbols.Add($"fp_c{((location) + 3)}", name);
+                symbols.Add($"vp_c{((location) + 3)}", name);
             }
 
             foreach (var name in reflect.Inputs.Keys)
