@@ -147,13 +147,7 @@ vec2 get_tex_coord(vec2 tex_coord, mat2x4 mat, int type)
 {
 	if (type == 0)
 		return calc_texcoord_matrix(mat, tex_coord);
-	if (type == 4) //sphere mapping used on metal characters
-	{
-		//view normal
-		vec3 view_n = (normalize(fNormals.xyz) * mat3(mdlEnvView.cView)).xyz;
-		//center the uvs
-		return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
-	}
+
 	return tex_coord;
 }
  
