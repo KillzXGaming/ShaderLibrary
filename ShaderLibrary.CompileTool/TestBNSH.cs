@@ -12,6 +12,9 @@ namespace ShaderLibrary.Test
     {
         public static void Run()
         {
+            
+            Run("LEye.bnsh_vsh", "output.bnsh");
+
             Run("LEye.bnsh_fsh", "output.bnsh");
         }
 

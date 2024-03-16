@@ -62,8 +62,11 @@ namespace EffectLibraryTest
                 if (location == -1)
                     continue;
 
-                string glsl_string_cbuff = $"_fp_c{((location) + 3).ToString("X1")}";
-                symbols.Add(glsl_string_cbuff, name);
+                string glsl_string_cbuff_p = $"_fp_c{((location) + 3).ToString("X1")}";
+                string glsl_string_cbuff_v = $"_vp_c{((location) + 3).ToString("X1")}";
+
+                symbols.Add(glsl_string_cbuff_p, name);
+                symbols.Add(glsl_string_cbuff_v, name);
             }
 
             foreach (var name in reflect.Inputs.Keys)
