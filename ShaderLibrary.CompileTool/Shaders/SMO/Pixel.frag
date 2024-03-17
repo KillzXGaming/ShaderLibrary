@@ -112,8 +112,9 @@ void main()
 	vec4 baseColor = texture(cTextureBaseColor, fTexCoords0.xy);
 	vec3 normals = fNormalsDepth.rgb;
 
-	float metalness = 0.0;
-	float roughness = 0.5;
+	float metalness = texture(cTextureUniform0, fTexCoords0.xy).r;
+	float roughness = texture(cTextureUniform1, fTexCoords0.xy).r;
+	vec4 sss = texture(cTextureUniform2, fTexCoords0.xy).rgba;
 
 	const float MAX_LOD = 5.0;
 
