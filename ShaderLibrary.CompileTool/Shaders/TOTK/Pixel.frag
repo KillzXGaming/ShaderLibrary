@@ -179,28 +179,61 @@ vec2 GetTexCoords(int tex_id)
 	return fTexCoords0.xy;
 }
 
+int ConvertFloatToByte(float v)
+{
+	return int(trunc(v * 255.0));
+}
+
+float ConvertByteToFloat(int v)
+{
+	return float(v * 0.0039215688593685626983642578125);
+}
+
+vec2 EncodeSpecular(vec2 spec_mask)
+{
+	int spec	  = ((ConvertFloatToByte(spec_mask.x) & 248) | 4);
+	int metalness = ((ConvertFloatToByte(spec_mask.y) & 252) | 2);
+
+	return vec2(
+		ConvertByteToFloat(spec), 
+		ConvertByteToFloat(metalness));
+}
+
+vec2 EncodeSpecularAO(float spec_mask, float ambient_occ_w)
+{
+	int spec	  = ((ConvertFloatToByte(spec_mask) & 248) | 4);
+	int metalness = ((ConvertFloatToByte(ambient_occ_w) & 252) | 2);
+
+	return vec2(
+		ConvertByteToFloat(spec), 
+		ConvertByteToFloat(metalness));
+}
+
 void main()
 {	
 	vec3 base_color = texture(cAlbedoTexture,    GetTexCoords(TEXTURE_0_TEXCOORD)).rgb;
-	float spec_mask = texture(cSpecularTexture,  GetTexCoords(TEXTURE_1_TEXCOORD)).r;
+	vec2 spec_mask = texture(cSpecularTexture,  GetTexCoords(TEXTURE_1_TEXCOORD)).rg;
 	float norm_map  = texture(cNormalMapTexture, GetTexCoords(TEXTURE_2_TEXCOORD)).r;
 	float red	    = texture(cRedMap,           GetTexCoords(TEXTURE_4_TEXCOORD)).r;
 	float bake_ao   = texture(cAmientOccMap,     GetTexCoords(TEXTURE_5_TEXCOORD)).r;
-	float bake_2    = texture(cAmientOccMap,     GetTexCoords(TEXTURE_5_TEXCOORD)).g;
+	float bake_shad = texture(cAmientOccMap,     GetTexCoords(TEXTURE_5_TEXCOORD)).w;
 
+	vec2 specular_encoded = EncodeSpecular(spec_mask);
+
+	//spec out
 	vec3 normals = fNormals.xyz;
 
 	oMaterialID.x = CHARA_SKIN_MATID; //material ID to display in the deferred pass
 	oMaterialID.y = p_object_attribute; //always set as Y
+		
+	oAlbedoColor.xyz = base_color * vec3(1.0, 0.0, 0.0); 
+	oAlbedoColor.a = 1.0;
 
 	oNormals.xy = normals.xy; 
 	oNormals.z = bake_ao; 
-	oNormals.a = 1.0;  //packed spec map and roughness??
-		
-	oAlbedoColor.xyz = base_color; 
-	oAlbedoColor.a = 0.04; //not sure what this is used for. Seems to have bake_2 packed with something else
+	oNormals.a = specular_encoded.x; 
 
-	oEmission = vec4(0.0);
+	oEmission = vec4(1.0, 0, 0, 1.0);
 
 	//storage buffer calculations
 
