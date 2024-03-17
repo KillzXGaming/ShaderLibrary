@@ -34,7 +34,7 @@ layout (binding = 2, std140) uniform MdlEnvView
 
 } mdlEnvView;
 
-layout (binding = 1, std140) uniform GsysMaterial
+layout (binding = 3, std140) uniform Material
 {
 	mat2x4 tex_mtx0;
 	mat2x4 tex_mtx1;
@@ -92,11 +92,10 @@ layout (location = 10) in vec4 vBoneWeight;
 layout (location = 11) in ivec4 vBoneIndices;
 
 
-layout (location = 0) out vec4 fPositions;
+layout (location = 0) out vec4 fNormalsDepth;
 layout (location = 1) out vec4 fTexCoords0;
 layout (location = 2) out vec4 fTangents;
-layout (location = 3) out vec4 fNormals;
-layout (location = 4) out vec4 fTexCoords23;
+layout (location = 3) out vec4 fTexCoords23;
 
 vec4 skin(vec3 pos, ivec4 index)
 {
@@ -145,6 +144,8 @@ vec2 calc_texcoord_matrix(mat2x4 mat, vec2 tex_coord)
 
 vec2 get_tex_coord(vec2 tex_coord, mat2x4 mat, int type)
 {
+	return tex_coord;
+
 	if (type == 0)
 		return calc_texcoord_matrix(mat, tex_coord);
 
@@ -159,14 +160,11 @@ void main()
 	vec4 position = skin(vPosition.xyz, bone_index);
     gl_Position = vec4(position.xyz, 1) * mdlEnvView.cViewProj;
 
-	fPositions = position;
-
-	//Todo unsure if this is correct
-	float linear_depth = (gl_Position.w - mdlEnvView.ZNearFar.x) * mdlEnvView.ZNearFar.w;
-	fPositions.w = linear_depth;
-
 	//normals
-	fNormals = vec4(skinNormal(vNormal.xyz, bone_index).xyz, 1.0);
+	fNormalsDepth = vec4(skinNormal(vNormal.xyz, bone_index).xyz, 1.0);
+
+	float linear_depth = (gl_Position.w - mdlEnvView.ZNearFar.x) * mdlEnvView.ZNearFar.w;
+	fNormalsDepth.w = linear_depth;
 
 	//tangents
 	fTangents.xyz = skinNormal(vTangent.xyz, bone_index);

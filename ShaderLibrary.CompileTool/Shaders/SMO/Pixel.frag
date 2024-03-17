@@ -1,4 +1,6 @@
-﻿#version 450 core
+#version 450 core
+
+#define ENABLE_ALPHA_MASK false
 
 layout (binding = 2, std140) uniform MdlEnvView
 {
@@ -8,9 +10,27 @@ layout (binding = 2, std140) uniform MdlEnvView
     mat3x4 cViewProjInv;
     mat4 cProjInv;
     mat3x4 cProjInvNoPos;
+	vec4 Exposure; //[20]
+	vec4 Dir;
+	vec4 ZNearFar; //[22] //Near, Far, Far - Near, 1 / (Far - Near)
+	vec2 TanFov;
+	vec2 ProjOffset;
+	vec4 ScreenSize;
+	vec4 CameraPos;
 } mdlEnvView;
 
-layout (binding = 1, std140) uniform GsysMaterial
+layout (binding = 7, std140) uniform ModelAdditionalInfo 
+{
+    vec4[] data;
+}modelInfo;
+
+layout (binding = 8, std140) uniform HDRTranslate 
+{
+    float Power;
+	float Range;
+}hdr;
+
+layout (binding = 3, std140) uniform Material
 {
 	mat2x4 tex_mtx0;
 	mat2x4 tex_mtx1;
@@ -64,24 +84,47 @@ layout (binding = 4) uniform sampler2D cTextureUniform2;
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 22) uniform sampler2D cTextureMaterialLightSphere;
 
-layout (location = 0) in vec4 fPositions;
+layout (location = 0) in vec4 fNormalsDepth;
 layout (location = 1) in vec4 fTexCoords0;
 layout (location = 2) in vec4 fTangents;
-layout (location = 3) in vec4 fNormals;
-layout (location = 4) in vec4 fTexCoords23;
+layout (location = 3) in vec4 fTexCoords23;
 
 layout (location = 0) out vec4 oLightBuf;
 layout (location = 1) out vec4 oWorldNrm;
 layout (location = 2) out vec4 oNormalizedLinearDepth;
 layout (location = 3) out vec4 oBaseColor;
 
+vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
+{
+	return vec4(baseColor, 1.0);
+}
+
+vec4 DecodeCubemap(samplerCube cube, vec3 n, int lod)
+{
+	vec4 tex = textureLod(cube, n, lod);
+
+	float scale = pow(tex.a, hdr.Power) * hdr.Range;
+	return vec4(tex.rgb * scale, scale);
+}
+
 void main()
 {
-	oLightBuf = vec4(1.0, 0.0, 0.0, 1.0);
+	vec4 baseColor = texture(cTextureBaseColor, fTexCoords0.xy);
+	vec3 normals = fNormalsDepth.rgb;
 
-	oWorldNrm = fNormals;
+	vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, normals, 5);
+	irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
-    oNormalizedLinearDepth.r = fPositions.w;
+	float metalness = 0.0;
+	float roughness = 0.5;
 
-	oBaseColor = texture(cTextureBaseColor, fTexCoords0.xy);
+	oLightBuf = baseColor * irradiance_cubemap * 4;
+
+	oWorldNrm.rg = normals.rg * 0.5 + 0.5;
+
+   // oNormalizedLinearDepth.r = fNormalsDepth.w;
+    oNormalizedLinearDepth.r = 0.0; //todo??
+
+	oBaseColor = EncodeBaseColor(baseColor.rgb,roughness, metalness, normals);
+    return;
 }
