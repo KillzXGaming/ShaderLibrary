@@ -99,7 +99,7 @@ vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 norm
 	return vec4(baseColor, 1.0);
 }
 
-vec4 DecodeCubemap(samplerCube cube, vec3 n, int lod)
+vec4 DecodeCubemap(samplerCube cube, vec3 n, float lod)
 {
 	vec4 tex = textureLod(cube, n, lod);
 
@@ -112,11 +112,14 @@ void main()
 	vec4 baseColor = texture(cTextureBaseColor, fTexCoords0.xy);
 	vec3 normals = fNormalsDepth.rgb;
 
-	vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, normals, 5);
-	irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
-
 	float metalness = 0.0;
 	float roughness = 0.5;
+
+	const float MAX_LOD = 5.0;
+
+	vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, normals, roughness * MAX_LOD);
+	irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
+
 
 	oLightBuf = baseColor * irradiance_cubemap * 4;
 
