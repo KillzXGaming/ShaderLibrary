@@ -160,7 +160,7 @@ layout (location = 11) in vec4 fTexCoords4;
 layout (location = 0) out vec4 oMaterialID;
 layout (location = 1) out vec4 oAlbedoColor;
 layout (location = 3) out vec4 oNormals;
-layout (location = 4) out vec4 oEmission;
+layout (location = 5) out vec4 oEmission;
 
 //cell shading material IDs
 const float CHARA_SKIN_MATID = 0.0470588244;
@@ -212,7 +212,7 @@ vec2 EncodeSpecularAO(float spec_mask, float ambient_occ_w)
 void main()
 {	
 	vec3 base_color = texture(cAlbedoTexture,    GetTexCoords(TEXTURE_0_TEXCOORD)).rgb;
-	vec2 spec_mask = texture(cSpecularTexture,  GetTexCoords(TEXTURE_1_TEXCOORD)).rg;
+	vec2 spec_mask  = texture(cSpecularTexture,  GetTexCoords(TEXTURE_1_TEXCOORD)).rg;
 	float norm_map  = texture(cNormalMapTexture, GetTexCoords(TEXTURE_2_TEXCOORD)).r;
 	float red	    = texture(cRedMap,           GetTexCoords(TEXTURE_4_TEXCOORD)).r;
 	float bake_ao   = texture(cAmientOccMap,     GetTexCoords(TEXTURE_5_TEXCOORD)).r;
@@ -226,14 +226,14 @@ void main()
 	oMaterialID.x = CHARA_SKIN_MATID; //material ID to display in the deferred pass
 	oMaterialID.y = p_object_attribute; //always set as Y
 		
-	oAlbedoColor.xyz = base_color * vec3(1.0, 0.0, 0.0); 
-	oAlbedoColor.a = 1.0;
+	oAlbedoColor.xyz = base_color; 
+	oAlbedoColor.a = 1.0; //sort of shading affect. Todo not working correctly, set to 1.0 for now
 
 	oNormals.xy = normals.xy; 
 	oNormals.z = bake_ao; 
 	oNormals.a = specular_encoded.x; 
 
-	oEmission = vec4(1.0, 0, 0, 1.0);
+	oEmission = vec4(0.0, 0, 0, 0.0);
 
 	//storage buffer calculations
 
