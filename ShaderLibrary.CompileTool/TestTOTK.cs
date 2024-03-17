@@ -18,9 +18,12 @@ namespace ShaderLibrary.CompileTool
 
             UniformBlockPrinter.Print(bfsha.ShaderModels[0].UniformBlocks.Values.FirstOrDefault(x => x.Type == 1));
 
+            //main shader
             var program_gbuffer = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_gbuffer");
-            var program_depth = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_zonly");
-            var program_mat = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_material");
+            //depth for shadow casing
+            var program_depth   = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_zonly");
+            //forward pass
+            var program_mat     = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_material");
 
             UAMShaderCompiler.Compile(program_gbuffer.VertexShader, "Shader/TOTK/Vertex.vert", "vert");
             UAMShaderCompiler.Compile(program_depth.VertexShader, "Shader/TOTK/Vertex.vert", "vert");
@@ -28,7 +31,7 @@ namespace ShaderLibrary.CompileTool
 
             UAMShaderCompiler.Compile(program_gbuffer.FragmentShader, "Shader/TOTK/Pixel.frag", "frag");
 
-            bfsha.Save("shaderNEW.bfsha");
+            bfsha.Save("NEW.bfsha");
         }
 
         static BnshFile.BnshShaderProgram GetShaderProgram(BfshaFile bfsha, ResFile resFile, string mesh_name, string pipeline)
