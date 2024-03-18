@@ -10,6 +10,7 @@
 #define TEXTURE_7_TEXCOORD 0
 
 #define ENABLE_AO true
+#define ENABLE_NORMAL_MAP true
 
 layout (binding = 2, std140) uniform GsysContext
 {
@@ -209,19 +210,32 @@ vec2 EncodeSpecularAO(float spec_mask, float ambient_occ_w)
 		ConvertByteToFloat(metalness));
 }
 
+vec2 CalculateNormals(vec2 normals, vec2 normal_map)
+{
+	vec3 N = vec3(normals, 1);
+	vec3 T = vec3(fTangents.xyz);
+	vec3 B = normalize(cross(T, N) * fTangents.w);
+
+	mat3 tbn_matrix = mat3(T, B, N);
+
+	vec3 tangent_normal = N;
+	if (ENABLE_NORMAL_MAP)
+		tangent_normal = vec3(normal_map, 1);
+
+	return normalize(tbn_matrix * tangent_normal).xy;
+}
+
 void main()
 {	
 	vec3 base_color = texture(cAlbedoTexture,    GetTexCoords(TEXTURE_0_TEXCOORD)).rgb;
 	vec2 spec_mask  = texture(cSpecularTexture,  GetTexCoords(TEXTURE_1_TEXCOORD)).rg;
-	float norm_map  = texture(cNormalMapTexture, GetTexCoords(TEXTURE_2_TEXCOORD)).r;
+	vec2 norm_map   = texture(cNormalMapTexture, GetTexCoords(TEXTURE_2_TEXCOORD)).rg;
 	float red	    = texture(cRedMap,           GetTexCoords(TEXTURE_4_TEXCOORD)).r;
 	float bake_ao   = texture(cAmientOccMap,     GetTexCoords(TEXTURE_5_TEXCOORD)).r;
 	float bake_shad = texture(cAmientOccMap,     GetTexCoords(TEXTURE_5_TEXCOORD)).w;
 
 	vec2 specular_encoded = EncodeSpecular(spec_mask);
-
-	//spec out
-	vec3 normals = fNormals.xyz;
+	vec2 normals = CalculateNormals(fNormals.xy, norm_map);
 
 	oMaterialID.x = CHARA_SKIN_MATID; //material ID to display in the deferred pass
 	oMaterialID.y = p_object_attribute; //always set as Y
@@ -233,7 +247,7 @@ void main()
 	oNormals.z = bake_ao; 
 	oNormals.a = specular_encoded.x; 
 
-	oEmission = vec4(0.0, 0, 0, 0.0);
+	oEmission = vec4(0.0, 0, 0.0, 0.0);
 
 	//storage buffer calculations
 
