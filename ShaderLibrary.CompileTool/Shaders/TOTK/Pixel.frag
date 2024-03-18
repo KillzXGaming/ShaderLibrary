@@ -11,6 +11,9 @@
 
 #define ENABLE_AO true
 #define ENABLE_NORMAL_MAP true
+#define ENABLE_ALPHA_TEST true
+
+#define ALPHA_TEST_FUNC 1
 
 layout (binding = 2, std140) uniform GsysContext
 {
@@ -230,7 +233,7 @@ vec2 CalculateNormals(vec2 normals, vec2 normal_map)
 
 void main()
 {	
-	vec3 base_color = texture(cAlbedoTexture,    GetTexCoords(TEXTURE_0_TEXCOORD)).rgb;
+	vec4 base_color = texture(cAlbedoTexture,    GetTexCoords(TEXTURE_0_TEXCOORD)).rgba;
 	vec2 spec_mask  = texture(cSpecularTexture,  GetTexCoords(TEXTURE_1_TEXCOORD)).rg;
 	vec2 norm_map   = texture(cNormalMapTexture, GetTexCoords(TEXTURE_2_TEXCOORD)).rg;
 	float red	    = texture(cRedMap,           GetTexCoords(TEXTURE_4_TEXCOORD)).r;
@@ -243,8 +246,48 @@ void main()
 	oMaterialID.x = CHARA_SKIN_MATID; //material ID to display in the deferred pass
 	oMaterialID.y = p_object_attribute; //always set as Y
 		
-	oAlbedoColor.xyz = base_color; 
+	oAlbedoColor.xyz = base_color.rgb; 
 	oAlbedoColor.a = 1.0; //sort of shading affect. Todo not working correctly, set to 1.0 for now
+
+	float alpha = base_color.a;
+
+    //Alpha test
+    if (ENABLE_ALPHA_TEST)
+    {
+        switch (ALPHA_TEST_FUNC)
+        {
+            case 0: //gequal
+                if (alpha <= gsys_alpha_test_ref_value)
+                {
+                     discard;
+                }
+            break;
+            case 1: //greater
+                if (alpha < gsys_alpha_test_ref_value)
+                {
+                     discard;
+                }
+            break;
+            case 2: //equal
+                if (alpha == gsys_alpha_test_ref_value)
+                {
+                     discard;
+                }
+            break;
+            case 3: //less
+                if (alpha > gsys_alpha_test_ref_value)
+                {
+                     discard;
+                }
+            break;
+            case 4: //lequal
+                if (alpha >= gsys_alpha_test_ref_value)
+                {
+                     discard;
+                }
+            break;
+        }
+    }
 
 	oNormals.xy = normals.xy; 
 	oNormals.z = bake_ao; 
@@ -260,6 +303,8 @@ void main()
 	//TODO is this correct???
 	int index = int(index_x) * int(index_y) + int(index_x * context.data[146].z);
 	sceneShadingInfo.Tiles[index >> 2] = 1u;
+
+
 
     return;
 }
