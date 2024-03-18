@@ -225,7 +225,7 @@ vec2 CalculateNormals(vec2 normals, vec2 normal_map)
 		//adjust space to -1 1 range
 		tangent_normal = normalize(2.0 * tangent_normal - vec3(1));
 	}
-	return normalize(tbn_matrix * tangent_normal).xy;
+	return normalize(tbn_matrix * tangent_normal).xy * 0.5 + 0.5;
 }
 
 void main()
