@@ -220,11 +220,11 @@ vec2 CalculateNormals(vec2 normals, vec2 normal_map)
 
 	vec3 tangent_normal = N;
 	if (ENABLE_NORMAL_MAP)
+	{
 		tangent_normal = vec3(normal_map, 1);
-
-	//adjust space to -1 1 range
-    tangent_normal = normalize(2.0 * tangent_normal - vec3(1));
-
+		//adjust space to -1 1 range
+		tangent_normal = normalize(2.0 * tangent_normal - vec3(1));
+	}
 	return normalize(tbn_matrix * tangent_normal).xy;
 }
 
