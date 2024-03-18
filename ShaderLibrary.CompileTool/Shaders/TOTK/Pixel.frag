@@ -137,13 +137,13 @@ layout (binding = 9, std140) uniform GsysMaterial
 
 layout (binding = 0, std430) buffer _SceneShadingInfo //storage buffer shader info
 {
-    uint Grid[];
+    uint Tiles[];
 }sceneShadingInfo;
 
 layout (binding = 15) uniform sampler2D cAlbedoTexture; //cTexture0
 layout (binding = 16) uniform sampler2D cSpecularTexture; //cTexture1
 layout (binding = 17) uniform sampler2D cNormalMapTexture; //cTexture2
-layout (binding = 18) uniform sampler2D cEmissiveMapTexture;
+layout (binding = 18) uniform sampler2D cEmissiveMapTexture; //cTexture3
 layout (binding = 19) uniform sampler2D cRedMap; //cTexture4
 layout (binding = 20) uniform sampler2D cAmientOccMap; //cTexture5
 
@@ -151,7 +151,7 @@ layout (location = 0) in vec4 fTexCoords0;
 layout (location = 1) in vec4 fFog;
 layout (location = 2) in vec4 fTangents;
 layout (location = 3) in vec4 fNormals;
-layout (location = 4) in vec4 fTexCoordsBake; //xy shadow, zw lightmap
+layout (location = 4) in vec4 fTexCoordsBake; //xy shadow
 layout (location = 5) in vec4 fAttr5;
 layout (location = 6) in vec4 fViewDirection;
 layout (location = 7) in vec4 fScreenCoords;
@@ -225,7 +225,7 @@ vec2 CalculateNormals(vec2 normals, vec2 normal_map)
 		//adjust space to -1 1 range
 		tangent_normal = normalize(2.0 * tangent_normal - vec3(1));
 	}
-	return normalize(tbn_matrix * tangent_normal).xy * 0.5 + 0.5;
+	return normalize(tbn_matrix * tangent_normal).xy;
 }
 
 void main()
@@ -254,12 +254,12 @@ void main()
 
 	//storage buffer calculations
 
-	//Calculate index for shader info grid
+	//Calculate index for shader info tile grid
 	float index_x = gl_FragCoord.x * context.data[146].x; //w
 	float index_y = gl_FragCoord.y * context.data[146].y; //h
 	//TODO is this correct???
 	int index = int(index_x) * int(index_y) + int(index_x * context.data[146].z);
-	sceneShadingInfo.Grid[index >> 2] = 1u;
+	sceneShadingInfo.Tiles[index >> 2] = 1u;
 
     return;
 }
