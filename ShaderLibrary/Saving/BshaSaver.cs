@@ -502,13 +502,21 @@ namespace ShaderLibrary
             //BNSH file
             writer.AlignBytes(4096);
 
-            RelocationTable.SetRelocationSection(0, 0, (uint)writer.BaseStream.Position);
             var pos2 = writer.BaseStream.Position;
 
             for (int i = 0; i < bfsha.ShaderModels.Count; i++)
             {
                 var model = bfsha.ShaderModels[i];
                 var ofs_list = saved_models[i];
+
+                //BNSH file
+                writer.AlignBytes(4096);
+
+                if (i == 0)
+                {
+                    RelocationTable.SetRelocationSection(0, 0, (uint)writer.BaseStream.Position);
+                    pos2 = writer.BaseStream.Position;
+                }
 
                 writer.WriteOffset(ofs_list.bnsh_offset);
 
