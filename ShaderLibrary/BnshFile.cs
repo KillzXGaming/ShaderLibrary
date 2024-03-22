@@ -12,7 +12,7 @@ namespace ShaderLibrary
 {
     public class BnshFile
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = "dummy";
 
         public List<ShaderVariation> Variations { get; set; }
 

@@ -85,19 +85,22 @@ namespace ShaderLibrary
             reader.ReadUInt16();
         }
 
-        public void ExportProgram(string filePath, ShaderModel shader, params ShaderProgram[] programs)
+        public void ExportProgram(Stream stream, string name, ShaderModel shader, params BfshaShaderProgram[] programs)
         {
             var programIndices = programs.Select(x => shader.Programs.IndexOf(x)).ToList();
-            ExportProgram(filePath, shader, programIndices.ToArray());
+            ExportProgram(stream, name, shader, programIndices.ToArray());
         }
 
-        public void ExportProgram(string filePath, ShaderModel shader, params int[] programIndices)
+        public void ExportProgram(Stream stream, string name, ShaderModel shader, params int[] programIndices)
+        {
+            var bfsha = CreateNewArchive(name, shader, programIndices);
+            bfsha.Save(stream);
+        }
+
+        public BfshaFile CreateNewArchive(string name, ShaderModel shader, params int[] programIndices)
         {
             //Export as a seperate usable bfsha binary
-
             var programs = programIndices.Select(x => shader.Programs[x]).ToList();
-
-            string name = System.IO.Path.GetFileNameWithoutExtension(filePath);
 
             BfshaFile bfsha = new BfshaFile()
             {
@@ -124,12 +127,12 @@ namespace ShaderLibrary
                 Variations = new List<ShaderVariation>(),
             };
 
-            List<ShaderProgram> exported_programs = new List<ShaderProgram>();
+            List<BfshaShaderProgram> exported_programs = new List<BfshaShaderProgram>();
 
             foreach (var prog in programs)
             {
                 //Setup program
-                exported_programs.Add(new ShaderProgram()
+                exported_programs.Add(new BfshaShaderProgram()
                 {
                     UsedAttributeFlags = prog.UsedAttributeFlags,
                     Flags = prog.Flags,
@@ -166,9 +169,7 @@ namespace ShaderLibrary
             };
             bfsha.ShaderModels.Add(export_shader.Name, export_shader);
 
-            bfsha.Save(filePath);
-
-            new BfshaFile(filePath);
+            return bfsha;
         }
     }
 
@@ -178,14 +179,14 @@ namespace ShaderLibrary
 
         public ResDict<ShaderOption> StaticOptions { get; set; }
         public ResDict<ShaderOption> DynamicOptions { get; set; }
-        public List<ShaderProgram> Programs { get; set; }
+        public List<BfshaShaderProgram> Programs { get; set; }
 
-        public ResDict<StorageBuffer> StorageBuffers { get; set; }
-        public ResDict<UniformBlock> UniformBlocks { get; set; }
+        public ResDict<BfshaStorageBuffer> StorageBuffers { get; set; }
+        public ResDict<BfshaUniformBlock> UniformBlocks { get; set; }
 
-        public ResDict<ImageBuffer> Images { get; set; }
-        public ResDict<Sampler> Samplers { get; set; }
-        public ResDict<Attribute> Attributes { get; set; }
+        public ResDict<BfshaImageBuffer> Images { get; set; }
+        public ResDict<BfshaSampler> Samplers { get; set; }
+        public ResDict<BfshaAttribute> Attributes { get; set; }
 
         public SymbolData SymbolData { get; set; }
 
@@ -207,16 +208,16 @@ namespace ShaderLibrary
             Name = reader.LoadString();
             StaticOptions = reader.LoadDictionary<ShaderOption>();
             DynamicOptions = reader.LoadDictionary<ShaderOption>();
-            Attributes = reader.LoadDictionary<Attribute>();
-            Samplers = reader.LoadDictionary<Sampler>();
+            Attributes = reader.LoadDictionary<BfshaAttribute>();
+            Samplers = reader.LoadDictionary<BfshaSampler>();
             if (reader.Header.VersionMajor >= 8)
-                Images = reader.LoadDictionary<ImageBuffer>();
-            UniformBlocks = reader.LoadDictionary<UniformBlock>();
+                Images = reader.LoadDictionary<BfshaImageBuffer>();
+            UniformBlocks = reader.LoadDictionary<BfshaUniformBlock>();
             long uniformArrayOffset = reader.ReadInt64();
 
             if (reader.Header.VersionMajor >= 7)
             {
-                StorageBuffers = reader.LoadDictionary<StorageBuffer>();
+                StorageBuffers = reader.LoadDictionary<BfshaStorageBuffer>();
                 reader.ReadUInt64(); //unknown offset. Not used in files tested
             }
 
@@ -275,9 +276,12 @@ namespace ShaderLibrary
             var bnshFileStream = new SubStream(reader.BaseStream, shaderFileOffset, bnshSize);
             BnshFile = new BnshFile(bnshFileStream);
 
-            Programs = reader.ReadArray<ShaderProgram>(
+            Programs = reader.ReadArray<BfshaShaderProgram>(
                  (ulong)shaderProgramArrayOffset,
                  programCount);
+
+            foreach (var program in this.Programs)
+                program.ParentShader = this;
 
             KeyTable = reader.ReadCustom(() =>
             {
@@ -380,7 +384,7 @@ namespace ShaderLibrary
 
         public void CreateAddNewShaderProgram(ShaderVariation variation, Dictionary<string, string> options)
         {
-            var program = new ShaderProgram();
+            var program = new BfshaShaderProgram();
             program.VariationIndex = this.BnshFile.Variations.IndexOf(variation);
 
             //Init locations
@@ -488,6 +492,23 @@ namespace ShaderLibrary
 
                 Console.WriteLine($"{option.Name} = {option.Choices.GetKey(choiceIndex)}");
             }
+        }
+
+        public string GetOptionChoice(int programIndex, string option_name)
+        {
+            int numKeysPerProgram = StaticKeyLength + DynamicKeyLength;
+            int baseIndex = numKeysPerProgram * programIndex;
+
+            if (this.StaticOptions.ContainsKey(option_name))
+            {
+                var option = this.StaticOptions[option_name];
+                int choiceIndex = option.GetChoiceIndex(KeyTable[baseIndex + option.Bit32Index]);
+                if (choiceIndex > option.Choices.Count || choiceIndex == -1)
+                    throw new Exception($"Invalid choice index in key table! {option.Name} index {choiceIndex}");
+
+                return option.Choices.GetKey(choiceIndex);
+            }
+            return "";
         }
     }
 
@@ -649,13 +670,13 @@ namespace ShaderLibrary
         }
     }
 
-    public class UniformBlock : IResData
+    public class BfshaUniformBlock : IResData
     {
         public ushort Size => header.Size;
         public byte Index => header.Index;
         public byte Type => header.Type;
 
-        public ResDict<ShaderUniform> Uniforms { get; set; }
+        public ResDict<BfshaUniform> Uniforms { get; set; }
 
         private ShaderUniformBlockHeader header;
 
@@ -671,7 +692,7 @@ namespace ShaderLibrary
 
             long pos = reader.BaseStream.Position;
 
-            Uniforms = reader.LoadDictionary<ShaderUniform>(
+            Uniforms = reader.LoadDictionary<BfshaUniform>(
                 header.UniformDictionaryOffset, header.UniformArrayOffset);
 
             DefaultBuffer = reader.ReadCustom(() => reader.ReadBytes(Size), (uint)header.DefaultOffset);
@@ -680,7 +701,7 @@ namespace ShaderLibrary
         }
     }
 
-    public class ShaderUniform : IResData
+    public class BfshaUniform : IResData
     {
         public string Name { get; set; }
         public int Index { get; set; }
@@ -697,14 +718,14 @@ namespace ShaderLibrary
         }
     }
 
-    public class ImageBuffer : IResData
+    public class BfshaImageBuffer : IResData
     {
         public void Read(BinaryDataReader reader)
         {
         }
     }
 
-    public class StorageBuffer : IResData
+    public class BfshaStorageBuffer : IResData
     {
         public uint[] Unknowns { get; set; }
 
@@ -714,7 +735,7 @@ namespace ShaderLibrary
         }
     }
 
-    public class Sampler : IResData
+    public class BfshaSampler : IResData
     {
         public string Annotation;
 
@@ -728,7 +749,7 @@ namespace ShaderLibrary
         }
     }
 
-    public class Attribute : IResData
+    public class BfshaAttribute : IResData
     {
         public byte Index;
         public sbyte Location;
@@ -740,7 +761,7 @@ namespace ShaderLibrary
         }
     }
 
-    public class ShaderProgram : IResData
+    public class BfshaShaderProgram : IResData
     {
         public List<ShaderIndexHeader> UniformBlockIndices = new List<ShaderIndexHeader>();
         public List<ShaderIndexHeader> SamplerIndices = new List<ShaderIndexHeader>();
@@ -760,6 +781,8 @@ namespace ShaderLibrary
         internal long _imageTableOfsPos;
         internal long _storageBlockTableOfsPos;
 
+        public ShaderModel ParentShader { get; internal set; }
+
         public bool IsAttributeUsed(int index)
         {
             return (UsedAttributeFlags >> index & 0x1) != 0;
@@ -771,6 +794,34 @@ namespace ShaderLibrary
                 UsedAttributeFlags |= (1u << index);
             else
                 UsedAttributeFlags &= ~(1u << index);
+        }
+
+        public void SetSampler(string sampler, bool bind, bool isFragment = true)
+        {
+            var index = ParentShader.Samplers.GetIndex(sampler);
+            if (index == -1)
+                throw new Exception($"Sampler not found in shader!");
+
+            var bind_id = ParentShader.Samplers[sampler].Index;
+
+            if (isFragment)
+                this.SamplerIndices[index].FragmentLocation = bind ? bind_id : -1;
+            else
+                this.SamplerIndices[index].VertexLocation = bind ? bind_id : -1;
+        }
+
+        public void SetUniformBlock(string sampler, bool bind, bool isFragment)
+        {
+            var index = ParentShader.UniformBlocks.GetIndex(sampler);
+            if (index == -1)
+                throw new Exception($"Sampler not found in shader!");
+
+            var bind_id = ParentShader.UniformBlocks[sampler].Index;
+
+            if (isFragment)
+                this.UniformBlockIndices[index].FragmentLocation = bind ? bind_id : -1;
+            else
+                this.UniformBlockIndices[index].VertexLocation = bind ? bind_id : -1;
         }
 
         public void Read(BinaryDataReader reader)
