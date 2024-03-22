@@ -25,11 +25,19 @@ namespace ShaderLibrary.CompileTool
             //forward pass
             var program_mat     = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_material");
 
-            UAMShaderCompiler.Compile(program_gbuffer.VertexShader, "Shader/TOTK/Vertex.vert", "vert");
-            UAMShaderCompiler.Compile(program_depth.VertexShader, "Shader/TOTK/Vertex.vert", "vert");
-            UAMShaderCompiler.Compile(program_mat.VertexShader, "Shader/TOTK/Vertex.vert", "vert");
+            var mesh = resFile.Models[0].Shapes[mesh_name];
 
-            UAMShaderCompiler.Compile(program_gbuffer.FragmentShader, "Shader/TOTK/Pixel.frag", "frag");
+            Dictionary<string, string> macros = new Dictionary<string, string>();
+            macros.Add("SKIN_COUNT", mesh.VertexSkinCount.ToString());
+
+            string vertex_shader = File.ReadAllText("Shader/TOTK/Vertex.vert");
+            string frag_shader = File.ReadAllText("Shader/TOTK/Pixel.frag");
+
+            UAMShaderCompiler.CompileByText(program_gbuffer.VertexShader, vertex_shader, "vert", macros);
+            UAMShaderCompiler.CompileByText(program_depth.VertexShader, vertex_shader, "vert", macros);
+            UAMShaderCompiler.CompileByText(program_mat.VertexShader, vertex_shader, "vert", macros);
+
+            UAMShaderCompiler.CompileByText(program_gbuffer.FragmentShader, frag_shader, "frag", macros);
 
             bfsha.Save("NEW.bfsha");
         }
