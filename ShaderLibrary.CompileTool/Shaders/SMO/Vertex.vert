@@ -3,11 +3,23 @@
 //must match the mesh using this material
 #define SKIN_COUNT 4
 
-// 0 = texmtx
+//The uv transform method to use. 
+//0 = none 1 = tex_mtx0, 2 = tex_mtx1, 3 = tex_mtx2, 4 = tex_mtx3
 #define FUV0_MTX 0
 #define FUV1_MTX 0
 #define FUV2_MTX 0
 #define FUV3_MTX 0
+
+//The UV layer to use
+#define FUV0_SELECTOR 0
+#define FUV1_SELECTOR 0
+#define FUV2_SELECTOR 0
+#define FUV3_SELECTOR 0
+
+#define ENABLE_FUV0 true
+#define ENABLE_FUV1 false
+#define ENABLE_FUV2 false
+#define ENABLE_FUV3 false
 
 const int MAX_BONE_COUNT = 100;
 
@@ -78,7 +90,7 @@ layout (binding = 3, std140) uniform Material
 	float stain_rate;
 	float material_lod_roughness;
 	float material_lod_metalness;
-};
+}mat;
 
 layout (location = 0) in vec4 vPosition;
 layout (location = 1) in vec4 vNormal;
@@ -93,7 +105,7 @@ layout (location = 11) in ivec4 vBoneIndices;
 
 
 layout (location = 0) out vec4 fNormalsDepth;
-layout (location = 1) out vec4 fTexCoords0;
+layout (location = 1) out vec4 fTexCoords01;
 layout (location = 2) out vec4 fTangents;
 layout (location = 3) out vec4 fTexCoords23;
 
@@ -142,14 +154,35 @@ vec2 calc_texcoord_matrix(mat2x4 mat, vec2 tex_coord)
 	return (tex_coord * mat3x2(r0, r1)).xy;
 }
 
-vec2 get_tex_coord(vec2 tex_coord, mat2x4 mat, int type)
+vec2 get_tex_mtx(vec2 tex_coord, int type)
 {
-	return tex_coord;
+	if (type == 0) return tex_coord; //no matrix method used
 
-	if (type == 0)
-		return calc_texcoord_matrix(mat, tex_coord);
-
+	switch (type)
+	{
+		case 1: return calc_texcoord_matrix(mat.tex_mtx0, tex_coord);
+		case 2: return calc_texcoord_matrix(mat.tex_mtx1, tex_coord);
+		case 3: return calc_texcoord_matrix(mat.tex_mtx2, tex_coord);
+		case 4: return calc_texcoord_matrix(mat.tex_mtx3, tex_coord);
+		//TODO 5+ may include matcap and projection types
+		default: return tex_coord;
+	}
 	return tex_coord;
+}
+
+vec2 get_tex_coord(int selector, int mtx_type, bool enable)
+{
+	if (!enable)
+		return vec2(0.0);
+
+	switch (selector)
+	{
+		case 0: get_tex_mtx(vTexCoords0.xy, mtx_type);
+		case 1: get_tex_mtx(vTexCoords1.xy, mtx_type);
+		case 2: get_tex_mtx(vTexCoords2.xy, mtx_type);
+		default: //unknown type
+		return get_tex_mtx(vTexCoords0.xy, mtx_type);
+	}
 }
  
 void main()
@@ -171,9 +204,9 @@ void main()
 	fTangents.w = vTangent.w;
 
 	//material tex coords
-	fTexCoords0.xy = get_tex_coord(vTexCoords0.xy, tex_mtx0, FUV0_MTX);	
-	fTexCoords0.zw = get_tex_coord(vTexCoords1.xy, tex_mtx1, FUV1_MTX);	
-	fTexCoords23.xy = get_tex_coord(vTexCoords2.xy, tex_mtx2, FUV2_MTX);	
-	fTexCoords23.zw = get_tex_coord(vTexCoords2.xy, tex_mtx2, FUV3_MTX);	
+	fTexCoords01.xy  = get_tex_coord(FUV0_SELECTOR, FUV0_MTX, ENABLE_FUV0);	
+	fTexCoords01.zw  = get_tex_coord(FUV0_SELECTOR, FUV1_MTX, ENABLE_FUV1);	
+	fTexCoords23.xy  = get_tex_coord(FUV0_SELECTOR, FUV2_MTX, ENABLE_FUV2);	
+	fTexCoords23.zw  = get_tex_coord(FUV0_SELECTOR, FUV3_MTX, ENABLE_FUV3);	
     return;
 }
