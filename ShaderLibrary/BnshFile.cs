@@ -60,6 +60,16 @@ namespace ShaderLibrary
             Variations = reader.ReadArray<ShaderVariation>(Header.VariationStartOffset, (int)Header.NumVariation);
         }
 
+        public void ExportVariation(string filePath, params ShaderVariation[] variation)
+        {
+            BnshFile bnsh = new BnshFile();
+            bnsh.Header = this.Header;
+            bnsh.BinHeader = this.BinHeader;
+            bnsh.Name = this.Name;
+            bnsh.Variations.AddRange(variation);
+            bnsh.Save(filePath);
+        }
+
         public class ShaderVariation : IResData
         {
             public BnshShaderProgram BinaryProgram { get; set; }

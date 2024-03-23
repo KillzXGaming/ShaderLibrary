@@ -814,7 +814,7 @@ namespace ShaderLibrary
         {
             var index = ParentShader.UniformBlocks.GetIndex(sampler);
             if (index == -1)
-                throw new Exception($"Sampler not found in shader!");
+                throw new Exception($"Uniform Block not found in shader!");
 
             var bind_id = ParentShader.UniformBlocks[sampler].Index;
 
