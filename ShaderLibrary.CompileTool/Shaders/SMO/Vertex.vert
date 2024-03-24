@@ -211,10 +211,6 @@ void main()
 	fTexCoords23.zw  = get_tex_coord(FUV0_SELECTOR, FUV3_MTX, ENABLE_FUV3);	
 
 	//world pos - camera pos for eye position
-	fViewDirection.xyz = position.xyz - vec3(
-	   mdlEnvView.cViewInv[0].w,
-	   mdlEnvView.cViewInv[1].w, 
-	   mdlEnvView.cViewInv[2].w);
-
+	fViewDirection.xyz = normalize(position.xyz * mat3(mdlEnvView.cViewInv));
     return;
 }

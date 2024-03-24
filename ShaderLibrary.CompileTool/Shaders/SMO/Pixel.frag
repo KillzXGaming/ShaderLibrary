@@ -269,20 +269,23 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
+vec3 ReconstructNormal(in vec2 t_NormalXY) {
+    float t_NormalZ = sqrt(clamp(1.0 - dot(t_NormalXY.xy, t_NormalXY.xy), 0.0, 1.0));
+    return vec3(t_NormalXY.xy, t_NormalZ);
+}
+
 vec3 CalculateNormals(vec2 normals, vec2 normal_map)
 {
 	vec3 N = vec3(normals, 1);
 	vec3 T = vec3(fTangents.xyz);
-	vec3 B = normalize(cross(T, N) * fTangents.w);
+	vec3 B = normalize(cross(N, T) * fTangents.w);
 
 	mat3 tbn_matrix = mat3(T, B, N);
 
 	vec3 tangent_normal = N;
 	if (ENABLE_NORMAL_MAP)
 	{
-		tangent_normal = vec3(normal_map, 1);
-		//adjust space to -1 1 range
-		tangent_normal = normalize(2.0 * tangent_normal - vec3(1));
+		tangent_normal = ReconstructNormal(normal_map);
 	}
 	return normalize(tbn_matrix * tangent_normal).xyz;
 }
@@ -291,7 +294,7 @@ vec3 CalculateNormals(vec2 normals, vec2 normal_map)
 void main()
 {
 	vec4 base_color	  = CalculateOutput(o_base_color);
-	vec2 normal_map  = CalculateOutput(o_normal).rg;
+	vec2 normal_map   = CalculateOutput(o_normal).rg;
 	float metalness   = CalculateOutput(o_metalness).r;
 	float roughness   = CalculateOutput(o_roughness).r;
 	vec4 sss		  = CalculateOutput(o_sss);
@@ -327,7 +330,7 @@ void main()
     diffuseTerm *= clamp(1 - metalness, 0, 1);
     diffuseTerm *= vec3(1) - kS.xxx;
 
-	oLightBuf.rgb = diffuseTerm.rgb + specularTerm.rgb + emissionTerm.rgb;
+	oLightBuf.rgb = N.rgb + emissionTerm.rgb;
 
 	oWorldNrm.rg = N.rg * 0.5 + 0.5;
 
