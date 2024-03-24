@@ -40,6 +40,16 @@ namespace ShaderLibrary
             return null;
         }
 
+        public int GetIndex(string key)
+        {
+            for (int i = 0; i < Keys.Count; i++)
+            {
+                if (Keys.ElementAt(i) == key)
+                    return i;
+            }
+            return -1;
+        }
+
         public void Read(BinaryDataReader reader)
         {
             reader.ReadUInt32(); //magic
