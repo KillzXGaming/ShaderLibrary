@@ -1,6 +1,7 @@
 #version 450 core
 
 #define ENABLE_ALPHA_MASK false
+#define ENABLE_NORMAL_MAP true
 
 layout (binding = 2, std140) uniform MdlEnvView
 {
@@ -91,6 +92,7 @@ layout (location = 0) in vec4 fNormalsDepth;
 layout (location = 1) in vec4 fTexCoords01;
 layout (location = 2) in vec4 fTangents;
 layout (location = 3) in vec4 fTexCoords23;
+layout (location = 4) in vec4 fViewDirection;
 
 layout (location = 0) out vec4 oLightBuf;
 layout (location = 1) out vec4 oWorldNrm;
@@ -188,6 +190,7 @@ vec4 CalculateOutput(int flag)
 	{
 		case 10: return texture(cTextureBaseColor, SelectTexCoord(base_color_uv_selector));
 		case 20: return texture(cTextureNormal,	   SelectTexCoord(normal_uv_selector));
+		case 30: return vec4(fNormalsDepth.rgb, 0.0); //used in normals when no normal map present
 		//uniforms0 - uniforms4
 		case 50:  return texture(cTextureUniform0, SelectTexCoord(uniform0_uv_selector));
 		case 51:  return texture(cTextureUniform1, SelectTexCoord(uniform1_uv_selector));
@@ -202,7 +205,7 @@ vec4 CalculateOutput(int flag)
 	if (flag == 8)
 	{
 		//todo swap #
-		if (instance == 0 && enable_blend0)
+	/*	if (instance == 0 && enable_blend0)
 		{
 			vec4 src_calc = GetComp(CalculateOutput(blend0_src), blend0_src_ch);
 			vec4 cof_calc = GetComp(CalculateOutput(blend0_cof), blend0_cof_ch);
@@ -210,37 +213,127 @@ vec4 CalculateOutput(int flag)
 			vec4 ind_calc = CalculateOutput(blend0_indirect_map);
 
 			return CalculateBlend(src_calc, dst_calc, cof_calc, ind_calc, blend0_eq);
-		}
+		}*/
 	}
 
 	return vec4(0.0);
 }
 
+const float PI = 3.14159265359;
+
+// Shader code adapted from learnopengl.com's PBR tutorial:
+// https://learnopengl.com/PBR/Theory
+
+vec3 FresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+float DistributionGGX(vec3 N, vec3 H, float roughness)
+{
+    float a      = roughness*roughness;
+    float a2     = a*a;
+    float NdotH  = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+
+    float num   = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return num / denom;
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+
+    float num   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return num / denom;
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+{
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
+vec3 CalculateNormals(vec2 normals, vec2 normal_map)
+{
+	vec3 N = vec3(normals, 1);
+	vec3 T = vec3(fTangents.xyz);
+	vec3 B = normalize(cross(T, N) * fTangents.w);
+
+	mat3 tbn_matrix = mat3(T, B, N);
+
+	vec3 tangent_normal = N;
+	if (ENABLE_NORMAL_MAP)
+	{
+		tangent_normal = vec3(normal_map, 1);
+		//adjust space to -1 1 range
+		tangent_normal = normalize(2.0 * tangent_normal - vec3(1));
+	}
+	return normalize(tbn_matrix * tangent_normal).xyz;
+}
 
 
 void main()
 {
 	vec4 base_color	  = CalculateOutput(o_base_color);
-	float normal_map  = CalculateOutput(o_normal).r;
+	vec2 normal_map  = CalculateOutput(o_normal).rg;
 	float metalness   = CalculateOutput(o_metalness).r;
 	float roughness   = CalculateOutput(o_roughness).r;
 	vec4 sss		  = CalculateOutput(o_sss);
 
+	//EMISSION
+	vec3 emissionTerm = vec3(0.0);
 
-	vec3 normals = fNormalsDepth.rgb;
+	//PBR
+    vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
+
+    vec3 I = vec3(0,0,-1) * mat3(mdlEnvView.cView);
+    vec3 V = normalize(I); // view
+	vec3 L = normalize(fViewDirection.xyz ); // Light
+	vec3 H = normalize(fViewDirection.xyz + I); // half angle
+    vec3 R = reflect(I, N); // reflection
+
+	//BRDF
+
+    vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
+    vec3 kS = FresnelSchlickRoughness(max(dot(N, H), 0.0), f0, roughness);
 
 	const float MAX_LOD = 5.0;
 
-	vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, normals, roughness * MAX_LOD);
+	vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, N, roughness * MAX_LOD);
 	irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
-	oLightBuf = base_color * irradiance_cubemap * 4;
+	vec3 specularTerm = irradiance_cubemap.rgb * kS;
 
-	oWorldNrm.rg = normals.rg * 0.5 + 0.5;
+	//DIFFUSE
+    vec3 diffuseTerm = base_color.rgb;
+
+    // Adjust for metalness.
+    diffuseTerm *= clamp(1 - metalness, 0, 1);
+    diffuseTerm *= vec3(1) - kS.xxx;
+
+	oLightBuf.rgb = diffuseTerm.rgb + specularTerm.rgb + emissionTerm.rgb;
+
+	oWorldNrm.rg = N.rg * 0.5 + 0.5;
 
    // oNormalizedLinearDepth.r = fNormalsDepth.w;
     oNormalizedLinearDepth.r = 0.0; //todo??
 
-	oBaseColor = EncodeBaseColor(base_color.rgb,roughness, metalness, normals);
+	oBaseColor = EncodeBaseColor(base_color.rgb, roughness, metalness, N);
     return;
 }

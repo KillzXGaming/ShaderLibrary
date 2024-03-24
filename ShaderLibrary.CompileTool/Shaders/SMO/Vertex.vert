@@ -108,6 +108,7 @@ layout (location = 0) out vec4 fNormalsDepth;
 layout (location = 1) out vec4 fTexCoords01;
 layout (location = 2) out vec4 fTangents;
 layout (location = 3) out vec4 fTexCoords23;
+layout (location = 4) out vec4 fViewDirection;
 
 vec4 skin(vec3 pos, ivec4 index)
 {
@@ -208,5 +209,12 @@ void main()
 	fTexCoords01.zw  = get_tex_coord(FUV0_SELECTOR, FUV1_MTX, ENABLE_FUV1);	
 	fTexCoords23.xy  = get_tex_coord(FUV0_SELECTOR, FUV2_MTX, ENABLE_FUV2);	
 	fTexCoords23.zw  = get_tex_coord(FUV0_SELECTOR, FUV3_MTX, ENABLE_FUV3);	
+
+	//world pos - camera pos for eye position
+	fViewDirection.xyz = position.xyz - vec3(
+	   mdlEnvView.cViewInv[0].w,
+	   mdlEnvView.cViewInv[1].w, 
+	   mdlEnvView.cViewInv[2].w);
+
     return;
 }
