@@ -216,6 +216,7 @@ void main()
     vec3 light_color = textureLod(cDirectionalLightColor, vec2(mdlEnvView.Dir.w, 0.5), 0.0).xyz;
 	fLightColor.xyz = light_color;
 
+
 	//world pos - camera pos for eye position
 	fViewDirection.xyz = normalize(vec3(
 	   mdlEnvView.cView[0].w,
