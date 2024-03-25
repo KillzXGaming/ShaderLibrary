@@ -150,6 +150,14 @@ vec4 DecodeCubemap(samplerCube cube, vec3 n, float lod)
 	return vec4(tex.rgb * scale, scale);
 }
 
+vec2 CalcSphereCoords(vec3 n)
+{
+	//view normal
+	vec3 view_n = (normalize(n.xyz) * mat3(mdlEnvView.cView)).xyz;
+	//center the uvs
+	return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
+}
+
 vec4 GetComp(vec4 v, int comp_mask)
 {
 	switch (comp_mask)
@@ -323,19 +331,22 @@ void main()
 	roughness *= mat.force_roughness;
 	roughness = saturate(roughness);
 
-	//EMISSION
+	//Emission (todo)
 	vec3 emissionTerm = vec3(0.0);
 
-	//PBR
+	//Normals
     vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
 
+	//Sphere mapping
+	vec3 sphere_map = textureLod(cTextureMaterialLightSphere, CalcSphereCoords(N.xyz), sqrt(roughness)).rgb;
+
+	//PBR
     vec3 I = vec3(0,0,-1) * mat3(mdlEnvView.cView);
     vec3 V = normalize(I); // view
 	vec3 L = normalize(fViewDirection.xyz ); // Light
 	vec3 H = normalize(V + L); // half angle
     vec3 R = reflect(I, N); // reflection
 	float NV = saturate(dot(N, I));
-
 
     vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
 	vec3 kS = FresnelSchlickRoughness(max(dot(N, H), 0.0), f0, roughness);
@@ -347,22 +358,24 @@ void main()
 
 	vec3 specularTerm = irradiance_cubemap.rgb * 0.3 * kS;
 
-	//DIFFUSE
+	//Diffuse
     vec3 diffuseTerm = base_color.rgb;
 
-    // Adjust for metalness.
+    //Adjust for metalness.
     diffuseTerm *= clamp(1.0 - metalness, 0.0, 1.0);
     diffuseTerm *= vec3(1) - kS;
 
 	oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm + emissionTerm;
 
+	//clamp 0 - 2048 due to HDR/tone mapping
 	oLightBuf.rgb = max(oLightBuf.rgb, 0.0);
 	oLightBuf.rgb = min(oLightBuf.rgb, 2048.0);
 
+	//Normals output
 	oWorldNrm.rg = N.rg * 0.5 + 0.5;
 
- //   oNormalizedLinearDepth.r = fNormalsDepth.w;
     oNormalizedLinearDepth.r = 0.0; //todo. This causes flickering due to depth not matching with depth shader
+ //   oNormalizedLinearDepth.r = fNormalsDepth.w;
 
 	oBaseColor = EncodeBaseColor(saturate(base_color.rgb), roughness, metalness, N);
     return;
