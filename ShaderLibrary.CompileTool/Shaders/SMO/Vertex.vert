@@ -21,6 +21,8 @@
 #define ENABLE_FUV2 false
 #define ENABLE_FUV3 false
 
+layout (binding = 15) uniform sampler2D cDirectionalLightColor;
+
 const int MAX_BONE_COUNT = 100;
 
 layout (binding = 4, std140) uniform MdlMtx
@@ -108,7 +110,8 @@ layout (location = 0) out vec4 fNormalsDepth;
 layout (location = 1) out vec4 fTexCoords01;
 layout (location = 2) out vec4 fTangents;
 layout (location = 3) out vec4 fTexCoords23;
-layout (location = 4) out vec4 fViewDirection;
+layout (location = 4) out vec4 fLightColor;
+layout (location = 5) out vec4 fViewDirection;
 
 vec4 skin(vec3 pos, ivec4 index)
 {
@@ -210,7 +213,13 @@ void main()
 	fTexCoords23.xy  = get_tex_coord(FUV0_SELECTOR, FUV2_MTX, ENABLE_FUV2);	
 	fTexCoords23.zw  = get_tex_coord(FUV0_SELECTOR, FUV3_MTX, ENABLE_FUV3);	
 
+    vec3 light_color = textureLod(cDirectionalLightColor, vec2(mdlEnvView.Dir.w, 0.5), 0.0).xyz;
+	fLightColor.xyz = light_color;
+
 	//world pos - camera pos for eye position
-	fViewDirection.xyz = normalize(position.xyz * mat3(mdlEnvView.cViewInv));
+	fViewDirection.xyz = normalize(vec3(
+	   mdlEnvView.cView[0].w,
+	   mdlEnvView.cView[1].w, 
+	   mdlEnvView.cView[2].w) - position.xyz);
     return;
 }
