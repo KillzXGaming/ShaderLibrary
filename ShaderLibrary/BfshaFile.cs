@@ -895,6 +895,12 @@ namespace ShaderLibrary
                 GeoemetryLocation = reader.ReadInt32();
                 FragmentLocation = (sbyte)reader.ReadInt32();
                 ComputeLocation = (sbyte)reader.ReadInt32();
+
+                if (reader.Header.VersionMajor == 8)
+                {
+                    reader.ReadInt32();
+                    reader.ReadInt32();
+                }
             }
         }
 
