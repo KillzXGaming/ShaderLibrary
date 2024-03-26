@@ -418,8 +418,6 @@ namespace ShaderLibrary
             var pos = writer.BaseStream.Position;
 
             writer.Write(0u); //uint size
-
-            StringTable.fileName = name;
             StringTable.AddFileNameEntry(pos, name);
         }
     }

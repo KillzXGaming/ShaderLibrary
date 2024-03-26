@@ -12,9 +12,8 @@ namespace ShaderLibrary.Common
         private Dictionary<string, StringEntry> _savedStrings = new Dictionary<string, StringEntry>();
 
         private long _ofsStringTable;
-
-        internal string fileName;
-        internal long _ofsFileName;
+        private long _ofsFileName;
+        private string fileName;
 
         public void SaveHeaderOffset(BinaryWriter writer)
         {

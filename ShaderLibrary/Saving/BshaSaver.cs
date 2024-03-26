@@ -505,12 +505,6 @@ namespace ShaderLibrary
                                 writer.Write((int)loc.GeoemetryLocation);
                                 writer.Write((int)loc.FragmentLocation);
                                 writer.Write((int)loc.ComputeLocation);
-
-                                if (bfsha.BinHeader.VersionMajor >= 8)
-                                {
-                                    writer.Write((int)-1); //tess shader?
-                                    writer.Write((int)-1); //tess shader?
-                                }
                             }
                         }
                     }
@@ -593,9 +587,7 @@ namespace ShaderLibrary
             var pos = writer.BaseStream.Position;
 
             writer.Write(0u); //uint size
-
-            StringTable.fileName = name;
-            StringTable.AddEntry(pos, name);
+            StringTable.AddFileNameEntry(pos, name);
         }
 
 
