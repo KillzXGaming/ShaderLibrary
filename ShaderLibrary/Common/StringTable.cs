@@ -14,12 +14,20 @@ namespace ShaderLibrary.Common
         private long _ofsStringTable;
 
         internal string fileName;
+        internal long _ofsFileName;
 
         public void SaveHeaderOffset(BinaryWriter writer)
         {
             _ofsStringTable = writer.BaseStream.Position;
             writer.Write(0); //offset
             writer.Write(0); //size
+        }
+
+        //File name is pointed directly and using unit offset
+        public void AddFileNameEntry(long ofs, string str)
+        {
+            _ofsFileName = ofs;
+            fileName = str;
         }
 
         public void AddEntry(long ofs, string str)
@@ -42,11 +50,7 @@ namespace ShaderLibrary.Common
             // Sort the strings ordinally.
             SortedList<string, StringEntry> sorted = new SortedList<string, StringEntry>(ResStringComparer.Instance);
             foreach (KeyValuePair<string, StringEntry> entry in _savedStrings)
-            {
-                if (entry.Key == "dummy")
-                    continue;
                 sorted.Add(entry.Key, entry.Value);
-            }
 
             long start_pos = writer.BaseStream.Position;
 
@@ -54,10 +58,19 @@ namespace ShaderLibrary.Common
             writer.SaveHeaderBlock();
             writer.Write(sorted.Count);
 
-            writer.Write((short)fileName.Length);
-            writer.Write(Encoding.UTF8.GetBytes(fileName));
-            writer.Write((byte)0);
-            writer.AlignBytes(4);
+            //save file name from binary header 
+            if (_ofsFileName != 0)
+            {
+                writer.Write((short)fileName.Length);
+
+                long str_pos = writer.Position;
+                using (writer.BaseStream.TemporarySeek(this._ofsFileName, SeekOrigin.Begin))
+                    writer.Write((uint)str_pos);
+
+                writer.Write(Encoding.UTF8.GetBytes(fileName));
+                writer.Write((byte)0);
+                writer.AlignBytes(4);
+            }
 
             foreach (KeyValuePair<string, StringEntry> entry in sorted)
             {

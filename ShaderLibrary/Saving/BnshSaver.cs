@@ -420,7 +420,7 @@ namespace ShaderLibrary
             writer.Write(0u); //uint size
 
             StringTable.fileName = name;
-            StringTable.AddEntry(pos, name);
+            StringTable.AddFileNameEntry(pos, name);
         }
     }
 
