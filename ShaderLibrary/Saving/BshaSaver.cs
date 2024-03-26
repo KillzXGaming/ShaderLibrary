@@ -382,44 +382,81 @@ namespace ShaderLibrary
 
                     RelocationTable.SaveEntry(writer, 2, 1, 0, 0, "Symbol List");
 
-                    var samplerSymbolsOfsPos = writer.SaveOffset();
-                    var uniformBlockSymbolsOfsPos = writer.SaveOffset();
-                    writer.Write(0UL);
-                    writer.Write(0UL);
+                    long samplerSymbolsOfsPos = 0;
+                    long imageSymbolsOfsPos = 0;
+                    long uniformBlockSymbolsOfsPos = 0;
+                    long storageBlockSymbolsOfsPos = 0;
 
-                    writer.WriteOffset(samplerSymbolsOfsPos);
-
-                    uint num_symbol_offsets = 4;
                     if (bfsha.BinHeader.VersionMajor >= 8)
+                    {
+                        samplerSymbolsOfsPos = writer.SaveOffset();
+                        imageSymbolsOfsPos = writer.SaveOffset();
+                        uniformBlockSymbolsOfsPos = writer.SaveOffset();
+                        storageBlockSymbolsOfsPos = writer.SaveOffset();
+                    }
+                    else if (bfsha.BinHeader.VersionMajor >= 7)
+                    {
+                        samplerSymbolsOfsPos = writer.SaveOffset();
+                        uniformBlockSymbolsOfsPos = writer.SaveOffset();
+                        storageBlockSymbolsOfsPos = writer.SaveOffset();
+                        writer.Write(0UL);
+                    }
+                    else
+                    {
+                        samplerSymbolsOfsPos = writer.SaveOffset();
+                        uniformBlockSymbolsOfsPos = writer.SaveOffset();
+                        writer.Write(0UL);
+                        writer.Write(0UL);
+                    }
+                
+                    uint num_symbol_offsets = 4;
+                    if (bfsha.BinHeader.VersionMajor > 8)
                         num_symbol_offsets = 1;
+                    else if (bfsha.BinHeader.VersionMajor == 8)
+                        num_symbol_offsets = 6;
 
                     void SaveSymbol(SymbolData.SymbolEntry entry)
                     {
                          writer.SaveString(entry.Name1);
-                        if (bfsha.BinHeader.VersionMajor < 8)
+                        if (bfsha.BinHeader.VersionMajor <= 8)
                         {
                             writer.SaveString(entry.Value1);
                             writer.SaveString(entry.Name2);
                             writer.SaveString(entry.Value2);
                         }
+                        if (bfsha.BinHeader.VersionMajor == 8)
+                        {
+                            writer.SaveString(entry.Value3);
+                            writer.SaveString(entry.Name3);
+                        }
                     }
 
-                    RelocationTable.SaveEntry(writer, (uint)writer.Position, num_symbol_offsets,
-                            (uint)model.SymbolData.Samplers.Count, 0, 0, "Samplers Symbols");
-
-                    foreach (var symbol in model.SymbolData.Samplers)
-                        SaveSymbol(symbol);
-
-                    writer.WriteOffset(uniformBlockSymbolsOfsPos);
-
-                    RelocationTable.SaveEntry(writer, (uint)writer.Position, num_symbol_offsets,
-                  (uint)model.SymbolData.UniformBlocks.Count, 0, 0, "UniformBlocks Symbols");
-
-                    foreach (var symbol in model.SymbolData.UniformBlocks)
-                        SaveSymbol(symbol);
-
-                    if (bfsha.BinHeader.VersionMajor >= 7)
+                    if (model.SymbolData.Samplers.Count > 0)
                     {
+                        writer.WriteOffset(samplerSymbolsOfsPos);
+
+                        RelocationTable.SaveEntry(writer, (uint)writer.Position, num_symbol_offsets,
+                                (uint)model.SymbolData.Samplers.Count, 0, 0, "Samplers Symbols");
+
+                        foreach (var symbol in model.SymbolData.Samplers)
+                            SaveSymbol(symbol);
+                    }
+
+                    if (model.SymbolData.UniformBlocks.Count > 0)
+                    {
+                        writer.WriteOffset(uniformBlockSymbolsOfsPos);
+
+                        RelocationTable.SaveEntry(writer, (uint)writer.Position, num_symbol_offsets,
+                            (uint)model.SymbolData.UniformBlocks.Count, 0, 0, "UniformBlocks Symbols");
+
+                        foreach (var symbol in model.SymbolData.UniformBlocks)
+                            SaveSymbol(symbol);
+                    }
+
+                    if (bfsha.BinHeader.VersionMajor >= 7 && model.SymbolData.StorageBuffers.Count > 0)
+                    {
+                        writer.WriteOffset(storageBlockSymbolsOfsPos);
+
                         RelocationTable.SaveEntry(writer, (uint)writer.Position, num_symbol_offsets,
                            (uint)model.SymbolData.StorageBuffers.Count, 0, 0, "StorageBuffer Symbols");
 

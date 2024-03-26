@@ -523,7 +523,7 @@ namespace ShaderLibrary
         {
             if (reader.Header.VersionMajor >= 8)
             {
-                Samplers = reader.ReadArray< SymbolEntry>(reader.ReadUInt64(), shaderModel.Samplers.Count);
+                Samplers = reader.ReadArray<SymbolEntry>(reader.ReadUInt64(), shaderModel.Samplers.Count);
                 Images = reader.ReadArray<SymbolEntry>(reader.ReadUInt64(), shaderModel.Images.Count);
                 UniformBlocks = reader.ReadArray<SymbolEntry>(reader.ReadUInt64(), shaderModel.UniformBlocks.Count);
                 StorageBuffers = reader.ReadArray<SymbolEntry>(reader.ReadUInt64(), shaderModel.StorageBuffers.Count);
@@ -550,15 +550,22 @@ namespace ShaderLibrary
             public string Value1 { get; set; }
             public string Name2 { get; set; }
             public string Value2 { get; set; }
+            public string Name3 { get; set; }
+            public string Value3 { get; set; }
 
             public void Read(BinaryDataReader reader)
             {
                 Name1 = reader.LoadString();
-                if (reader.Header.VersionMajor < 8)
+                if (reader.Header.VersionMajor <= 8)
                 {
                     Value1 = reader.LoadString();
                     Name2 = reader.LoadString();
                     Value2 = reader.LoadString();
+                }
+                if (reader.Header.VersionMajor == 8)
+                {
+                    Name3 = reader.LoadString();
+                    Value3 = reader.LoadString();
                 }
             }
 
