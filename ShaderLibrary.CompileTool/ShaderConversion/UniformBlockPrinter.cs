@@ -8,7 +8,7 @@ namespace ShaderLibrary.CompileTool
 {
     public class UniformBlockPrinter
     {
-        public static void Print(UniformBlock block)
+        public static void Print(BfshaUniformBlock block)
         {
             //compute a usable uniform block in glsl code
 

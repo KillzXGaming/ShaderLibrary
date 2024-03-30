@@ -21,10 +21,14 @@ namespace ShaderLibrary.Test
             //get shaders
             string frag_code = Path.Combine("ryujinx", "portable", "sdcard", "fragment.bin.code");
             string frag_control = Path.Combine("ryujinx", "portable", "sdcard", "fragment.bin.control");
+            string vertex_code = Path.Combine("ryujinx", "portable", "sdcard", "vertex.bin.code");
+            string vertex_control = Path.Combine("ryujinx", "portable", "sdcard", "vertex.bin.control");
 
             //Remove previous
             if (File.Exists(frag_code)) File.Delete(frag_code);
             if (File.Exists(frag_control)) File.Delete(frag_control);
+            if (File.Exists(vertex_code)) File.Delete(vertex_code);
+            if (File.Exists(vertex_control)) File.Delete(vertex_control);
 
             //run exec and compile code
             string exec = Path.Combine("ryujinx", "Ryujinx.Headless.SDL2.exe");
@@ -34,8 +38,13 @@ namespace ShaderLibrary.Test
 
             if (File.Exists(frag_code)) 
                 pixelCode.ByteCode = File.ReadAllBytes(frag_code);
-            if (File.Exists(frag_control)) 
-                pixelCode.ControlCode = File.ReadAllBytes(frag_control);
+           // if (File.Exists(frag_control)) 
+            //    pixelCode.ControlCode = File.ReadAllBytes(frag_control);
+
+            if (File.Exists(vertex_code))
+                vertexCode.ByteCode = File.ReadAllBytes(vertex_code);
+          //  if (File.Exists(vertex_control))
+          //      vertexCode.ControlCode = File.ReadAllBytes(vertex_control);
         }
 
         private static void Exec(string exec, string game)

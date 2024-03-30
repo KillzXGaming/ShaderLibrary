@@ -10,6 +10,18 @@ namespace ShaderLibrary.CompileTool
 {
     public class UAMShaderCompiler
     {
+        public static ShaderOutput CompileByText(BnshFile.ShaderCode binary, string text, string kind)
+        {
+            File.WriteAllText("input.glsl", text);
+            return Compile(binary, "input.glsl", kind);
+        }
+
+        public static ShaderOutput CompileByText(BnshFile.ShaderCode binary, string text, string kind, Dictionary<string, string> macros)
+        {
+            File.WriteAllText("input.glsl", CompileMacros(macros, text));
+            return Compile(binary, "input.glsl", kind);
+        }
+
         public static ShaderOutput Compile(BnshFile.ShaderCode binary, string shadername, string kind)
         {
             if (binary == null)
@@ -102,6 +114,29 @@ namespace ShaderLibrary.CompileTool
             cmd.WaitForExit();
 
             return cmd.ExitCode == 0;
+        }
+
+        static string CompileMacros(Dictionary<string, string> macros, string src)
+        {
+            var sb = new System.Text.StringBuilder();
+            using (var writer = new System.IO.StringWriter(sb))
+            {
+                foreach (var line in src.Split("\n"))
+                {
+                    string value = line;
+                    if (line.StartsWith("#define"))
+                    {
+                        var macroName = line.Split()[1];
+                        if (macros.ContainsKey(macroName))
+                        {
+                            value = string.Format("#define {0} {1}", macroName, macros[macroName]);
+                            Console.WriteLine($"macro {value}");
+                        }
+                    }
+                    writer.WriteLine(value);
+                }
+            }
+            return sb.ToString();
         }
 
         public class ShaderOutput
