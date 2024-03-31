@@ -102,13 +102,15 @@ namespace ShaderLibrary
             //Shader programs
             for (int i = 0; i < bnsh.Variations.Count; i++)
             {
+                writer.AlignBytes(8);
                 writer.WriteOffset(shaderVarPos + i * 64 + 16);
 
                 var prog = bnsh.Variations[i].BinaryProgram;
 
-                writer.Write(prog.header.CodeType);
+                writer.Write((byte)prog.header.Flags);
+                writer.Write((byte)prog.header.CodeType);
                 writer.Write((byte)prog.header.Format);
-                writer.Write(new byte[2]); //reserved
+                writer.Write((byte)prog.header.Padding);
                 writer.Write(prog.header.BinaryFormat);
 
                 long[] stageOffsets = new long[6];
@@ -254,9 +256,11 @@ namespace ShaderLibrary
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupX);
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupY);
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupZ);
-                    writer.Write(reflectionDatas[j].header.Unknown1);
-                    writer.Write(reflectionDatas[j].header.Unknown2);
-                    writer.Write(reflectionDatas[j].header.Unknown3);
+                    writer.Write(0);
+                    writer.Write(reflectionDatas[j].header.SlotCount);
+                    writer.Write(0U);
+                    writer.Write(0U);
+                    writer.Write(0);
                 }
 
                 foreach (var data in reflectionDatas)

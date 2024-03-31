@@ -19,7 +19,11 @@ namespace ShaderLibrary
         public BinaryHeader BinHeader; //A header shared between bnsh and other formats
         public BnshHeader Header; //Bnsh header
 
-        public BnshFile() { }
+        public BnshFile() {
+            Variations = new List<ShaderVariation>();
+            BinHeader = new BinaryHeader();
+            Header = new BnshHeader();
+        }
 
         public BnshFile(string filePath)
         {
@@ -88,6 +92,13 @@ namespace ShaderLibrary
                 BinaryProgram = reader.Read<BnshShaderProgram>(header.BinaryOffset);
 
                 reader.SeekBegin(pos);
+            }
+
+            public void Export(string filePath)
+            {
+                BnshFile bnsh = new BnshFile();
+                bnsh.Variations.Add(this);
+                bnsh.Save(filePath);
             }
         }
 
