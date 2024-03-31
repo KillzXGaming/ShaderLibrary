@@ -247,7 +247,7 @@ namespace ShaderLibrary
                     writer.Write(reflectionDatas[j].header.OutputIdx);
                     writer.Write(reflectionDatas[j].header.SamplerIdx);
                     writer.Write(reflectionDatas[j].header.ConstBufferIdx);
-                    writer.Write(reflectionDatas[j].header.SlotCount);
+                    writer.Write(reflectionDatas[j].header.UnorderedAccessBufferIdx);
 
                     RelocationTable.SaveEntry(writer, 1, 1, 0, 0, "Reflection slots");
 
@@ -256,12 +256,13 @@ namespace ShaderLibrary
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupX);
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupY);
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupZ);
-                    writer.Write(0);
+                    writer.Write(reflectionDatas[j].header.ImageIdx);
                     writer.Write(reflectionDatas[j].header.SlotCount);
-                    writer.Write(0U);
-                    writer.Write(0U);
-                    writer.Write(0);
+                    writer.Write(0UL);
+                    writer.Write(0UL);
                 }
+
+                writer.AlignBytes(8);
 
                 foreach (var data in reflectionDatas)
                 {

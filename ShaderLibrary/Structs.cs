@@ -303,16 +303,18 @@ namespace ShaderLibrary
         public int OutputIdx; //id in slot list
         public int SamplerIdx;//id in slot list
         public int ConstBufferIdx;//id in slot list
+        public int UnorderedAccessBufferIdx;//id in slot list
 
-        public int SlotCount;
         public int SlotOffset;
 
         public int ComputeWorkGroupX;
         public int ComputeWorkGroupY;
         public int ComputeWorkGroupZ;
+        public int ImageIdx;
 
-        public uint Unknown1;
+        public int SlotCount;
+
+        public ulong Unknown1;
         public ulong Unknown2;
-        public ulong Unknown3;
     }
 }

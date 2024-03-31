@@ -9,10 +9,15 @@ using System.Xml.Linq;
 namespace ShaderLibrary
 {
     internal readonly ref struct TemporarySeekHandle
-        (Stream stream, long retpos)
     {
-        private readonly Stream Stream = stream;
-        private readonly long RetPos = retpos;
+        private readonly Stream Stream;
+        private readonly long RetPos;
+
+        public TemporarySeekHandle(Stream stream, long retpos)
+        {
+            this.Stream = stream;
+            this.RetPos = retpos;
+        }
 
         public readonly void Dispose()
         {
