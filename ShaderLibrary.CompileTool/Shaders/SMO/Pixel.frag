@@ -1,9 +1,5 @@
 #version 450 core
 
-#define ENABLE_ALPHA_MASK false
-#define ENABLE_NORMAL_MAP true
-
-
 
 layout (binding = 2, std140) uniform MdlEnvView
 {
@@ -119,6 +115,9 @@ layout (location = 1) out vec4 oWorldNrm;
 layout (location = 2) out vec4 oNormalizedLinearDepth;
 layout (location = 3) out vec4 oBaseColor;
 
+#define ENABLE_ALPHA_MASK false
+#define ENABLE_NORMAL_MAP true
+
 #define o_base_color     10
 #define o_normal         20
 #define o_roughness      50
@@ -139,6 +138,18 @@ const int FUV_MTX3 = 13;
 #define uniform2_uv_selector     FUV_MTX0
 #define uniform3_uv_selector     FUV_MTX0
 #define uniform4_uv_selector     FUV_MTX0
+
+#define enable_uniform0_mul_vtxcolor     false
+#define enable_uniform1_mul_vtxcolor     false
+#define enable_uniform2_mul_vtxcolor     false
+#define enable_uniform3_mul_vtxcolor     false
+#define enable_uniform4_mul_vtxcolor     false
+
+#define enable_uniform0_mul_color     false
+#define enable_uniform1_mul_color     false
+#define enable_uniform2_mul_color     false
+#define enable_uniform3_mul_color     false
+#define enable_uniform4_mul_color     false
 
 #define blend0_src           10
 #define blend0_src_ch        10
@@ -209,19 +220,32 @@ vec2 SelectTexCoord(int mtx_select)
         return fTexCoords01.xy;
 }
 
+float BlendCompareComponent(float src, float dst, float cof)
+{
+    float cmp = (src.r < 0.5) ? 0.0 : 1.0;
+    float n = -2.0 * src.x + 2.0;
+    float func = 2.0 * src.x * dst.x * cof.x + 2.0 * src.x - src.x * cof.x;
+    return func + cmp * (-func - dst.x * cof.x * (-n) + cmp);
+}
 
 vec4 CalculateBlend(vec4 src, vec4 dst, vec4 cof, vec4 ind, int equation)
 {
     if      (equation == 0) return fma(src - dst, cof, dst);
-    else if (equation == 4) 
+    else if (equation == 1) return fma(dst, cof, src);
+    else if (equation == 2) return dst * cof * src;
+    else if (equation == 3) return fma(dst, 0.0 - cof, src); 
+    else if (equation == 4) return dst + cof + src; 
+    else if (equation == 5) return fma(dst * cof, 0.0 - src, dst * cof) + src;
+    else if (equation == 6) //Compare func 
     {
-        float v0 = dst.y + cof.y;
-        float v1 = dst.a + cof.a;
-        float v2 = dst.r + cof.r + src.r;
-        float v3 = dst.r + cof.r;
-
-        return fma(src - dst, cof, dst);
+        src.x = BlendCompareComponent(src.x, dst.x, cof.x);
+        src.y = BlendCompareComponent(src.y, dst.y, cof.y);
+        src.z = BlendCompareComponent(src.z, dst.z, cof.z);
+        src.w = BlendCompareComponent(src.w, dst.w, cof.w);
+        return src;
     }
+    else if (equation == 7) return (src + dst) * cof; 
+    else if (equation == 8) return (src + vec4(0.0) - dst) * cof; 
 
     return src;
 }
@@ -234,13 +258,13 @@ vec4 CalculateSphereRate(int color_type, vec4 const_color, float sphere_rate_col
         float amount = clamp(exp2(log2(temp_19) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
-    else if (color_type == 1)
+    else if (color_type == 2)
     {
         float amount = clamp(exp2(log2(0.0 - temp_19 + 1.0) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
     else
-        return const_color;
+        return const_color; //type 0 defaults to const color
 }
 
 vec4 CalculateOutput(int flag)
