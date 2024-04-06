@@ -151,6 +151,12 @@ const int FUV_MTX3 = 13;
 #define enable_uniform3_mul_color     false
 #define enable_uniform4_mul_color     false
 
+#define enable_uniform0_roughness_lod false
+#define enable_uniform1_roughness_lod false
+#define enable_uniform2_roughness_lod false
+#define enable_uniform3_roughness_lod false
+#define enable_uniform4_roughness_lod false
+
 #define blend0_src           10
 #define blend0_src_ch        10
 
@@ -245,7 +251,7 @@ vec4 CalculateBlend(vec4 src, vec4 dst, vec4 cof, vec4 ind, int equation)
         return src;
     }
     else if (equation == 7) return (src + dst) * cof; 
-    else if (equation == 8) return (src + vec4(0.0) - dst) * cof; 
+    else if (equation == 8) return (src - dst) * cof; 
 
     return src;
 }
@@ -278,6 +284,30 @@ vec4 CalculateSphereRate(int sphere_color_type, vec4 const_color, float sphere_r
         return const_color; //type 0 defaults to const color
 }
 
+vec4 CalculateUniform(sampler2D cTexture, int uv_selector, vec4 mul_color,
+    bool enable_mul_color, bool enable_mul_vtx_color, bool enable_roughness_lod)
+{
+    //Todo third argument uses MdlEnvView.data[0x12A].x; if not using enable_roughness_lod
+    vec4 uniform_output = texture(cTexture, SelectTexCoord(uv_selector));
+
+    if (enable_roughness_lod)
+         uniform_output = textureLod(cTexture, SelectTexCoord(uv_selector), 0.0);
+    if (enable_mul_color)
+        uniform_output *= mul_color;
+    if (enable_mul_vtx_color)
+        uniform_output *= fVertexColor;
+
+    return uniform_output;
+}
+
+#define CALCULATE_UNIFORM(num) \
+    CalculateUniform(cTextureUniform##num, \
+        uniform##num##_uv_selector, \
+        mat.uniform##num##_mul_color,  \
+        enable_uniform##num##_mul_color, \
+        enable_uniform##num##_mul_vtxcolor, \
+        enable_uniform##num##_roughness_lod) \
+
 vec4 CalculateOutput(int flag)
 {
     if (flag == 10)
@@ -288,16 +318,11 @@ vec4 CalculateOutput(int flag)
         return texture(cTextureNormal,     SelectTexCoord(normal_uv_selector));
     else if (flag == 30)
         return vec4(fNormalsDepth.rgb, 0.0); //used in normals when no normal map present
-    else if (flag == 50)
-         return texture(cTextureUniform0, SelectTexCoord(uniform0_uv_selector));
-    else if (flag == 51)
-         return texture(cTextureUniform1, SelectTexCoord(uniform1_uv_selector));
-    else if (flag == 52)
-         return texture(cTextureUniform2, SelectTexCoord(uniform2_uv_selector));
-    else if (flag == 53)
-         return texture(cTextureUniform3, SelectTexCoord(uniform3_uv_selector));
-    else if (flag == 54)
-         return texture(cTextureUniform4, SelectTexCoord(uniform4_uv_selector));
+    else if (flag == 50) return CALCULATE_UNIFORM(0);
+    else if (flag == 51) return CALCULATE_UNIFORM(1);
+    else if (flag == 52) return CALCULATE_UNIFORM(2);
+    else if (flag == 53) return CALCULATE_UNIFORM(2);
+    else if (flag == 54) return CALCULATE_UNIFORM(3);
     else if (flag == 60) //sphere rate 0
         return CalculateSphereRate(SPHERE_CONST_COLOR0, mat.const_color0, mat.sphere_rate_color0);
     else if (flag == 61) //sphere rate 1
