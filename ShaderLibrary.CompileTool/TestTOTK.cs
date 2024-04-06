@@ -27,22 +27,35 @@ namespace ShaderLibrary.CompileTool
 
             var mesh = resFile.Models[0].Shapes[mesh_name];
 
+            //Custom skin count test
+            mesh.VertexSkinCount = 4;
+            //Also set in the vertex buffer section
+            resFile.Models[0].VertexBuffers[mesh.VertexBufferIndex].VertexSkinCount = 4;
+
+            var option = bfsha.ShaderModels[0].DynamicOptions["gsys_weight"];
+
+            //Set choice program lookup key with new skin count choice
+            bfsha.ShaderModels[0].SetOptionKey(option, mesh.VertexSkinCount.ToString(), program_mat.Item1);
+            bfsha.ShaderModels[0].SetOptionKey(option, mesh.VertexSkinCount.ToString(), program_gbuffer.Item1);
+            bfsha.ShaderModels[0].SetOptionKey(option, mesh.VertexSkinCount.ToString(), program_depth.Item1);
+
             Dictionary<string, string> macros = new Dictionary<string, string>();
             macros.Add("SKIN_COUNT", mesh.VertexSkinCount.ToString());
 
             string vertex_shader = File.ReadAllText("Shader/TOTK/Vertex.vert");
             string frag_shader = File.ReadAllText("Shader/TOTK/Pixel.frag");
 
-            UAMShaderCompiler.CompileByText(program_gbuffer.VertexShader, vertex_shader, "vert", macros);
-            UAMShaderCompiler.CompileByText(program_depth.VertexShader, vertex_shader, "vert", macros);
-            UAMShaderCompiler.CompileByText(program_mat.VertexShader, vertex_shader, "vert", macros);
+            UAMShaderCompiler.CompileByText(program_gbuffer.Item2.VertexShader, vertex_shader, "vert", macros);
+            UAMShaderCompiler.CompileByText(program_depth.Item2.VertexShader, vertex_shader, "vert", macros);
+            UAMShaderCompiler.CompileByText(program_mat.Item2.VertexShader, vertex_shader, "vert", macros);
 
-            UAMShaderCompiler.CompileByText(program_gbuffer.FragmentShader, frag_shader, "frag", macros);
+            UAMShaderCompiler.CompileByText(program_gbuffer.Item2.FragmentShader, frag_shader, "frag", macros);
 
             bfsha.Save("NEW.bfsha");
+            resFile.Save("NEW.bfres");
         }
 
-        static BnshFile.BnshShaderProgram GetShaderProgram(BfshaFile bfsha, ResFile resFile, string mesh_name, string pipeline)
+        static Tuple<int, BnshFile.BnshShaderProgram> GetShaderProgram(BfshaFile bfsha, ResFile resFile, string mesh_name, string pipeline)
         {
             var model = resFile.Models[0];
             var shape = model.Shapes[mesh_name];
@@ -58,7 +71,7 @@ namespace ShaderLibrary.CompileTool
             Console.WriteLine($"Found index {programIdx} of {indices_total.Count}");
 
             //get target variation data
-            return shader.GetVariation(programIdx).BinaryProgram;
+            return Tuple.Create(programIdx, shader.GetVariation(programIdx).BinaryProgram);
         }
 
         static Dictionary<string, string> GetOptionSearch(Material material, Shape shape, string pipeline = "gsys_assign_material")
