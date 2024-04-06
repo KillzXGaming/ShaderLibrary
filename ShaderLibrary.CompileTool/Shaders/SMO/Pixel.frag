@@ -115,6 +115,12 @@ layout (location = 1) out vec4 oWorldNrm;
 layout (location = 2) out vec4 oNormalizedLinearDepth;
 layout (location = 3) out vec4 oBaseColor;
 
+//Selectors for what UV mtx config to use for each sampler
+const int FUV_MTX0 = 10;
+const int FUV_MTX1 = 11;
+const int FUV_MTX2 = 12;
+const int FUV_MTX3 = 13;
+
 #define enable_base_color true
 #define enable_base_color_mul_color false
 
@@ -126,12 +132,6 @@ layout (location = 3) out vec4 oBaseColor;
 #define o_metalness      51
 #define o_sss            52
 #define o_emission       50
-
-//Selectors for what UV mtx config to use for each sampler
-const int FUV_MTX0 = 10;
-const int FUV_MTX1 = 11;
-const int FUV_MTX2 = 12;
-const int FUV_MTX3 = 13;
 
 #define base_color_uv_selector   FUV_MTX0
 #define normal_uv_selector       FUV_MTX0
@@ -570,13 +570,11 @@ void main()
     float metalness   = CalculateOutput(o_metalness).r;
     float roughness   = CalculateOutput(o_roughness).r;
     vec4 sss          = CalculateOutput(o_sss);
+    vec4 emission          = CalculateOutput(o_emission);
 
     //Roughness adjust
     roughness *= mat.force_roughness;
     roughness = saturate(roughness);
-
-    //Emission (todo)
-    vec3 emissionTerm = vec3(0.0);
 
     //Normals
     vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
@@ -609,7 +607,7 @@ void main()
     diffuseTerm *= clamp(1.0 - metalness, 0.0, 1.0);
     diffuseTerm *= vec3(1) - kS;
 
-    oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm + emissionTerm;
+    oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm + emission.rgb;
 
     //clamp 0 - 2048 due to HDR/tone mapping
     oLightBuf.rgb = max(oLightBuf.rgb, 0.0);
