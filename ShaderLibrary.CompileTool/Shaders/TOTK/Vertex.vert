@@ -200,35 +200,35 @@ vec4 calc_fog(vec3 pos)
 	return fog_output;
 }
 
-vec4 skin(vec3 pos, ivec4 index, vec4 weights)
+vec4 skin(vec3 pos)
 {
-    vec4 newPosition = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 newPosition = vec4(pos, 1.0);
 	
-	if (SKIN_COUNT >= 1)
-		newPosition +=  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * weights.x;
-	if (SKIN_COUNT >= 2)
-		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.y]) * weights.y;
-	if (SKIN_COUNT >= 3)
-		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.z]) * weights.z;
-	if (SKIN_COUNT >= 4)
-		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.w]) * weights.w;
-		
+	if (SKIN_COUNT >= 1) newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices.x]) * vBoneWeight.x;
+	if (SKIN_COUNT >= 2) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices.y]) * vBoneWeight.y;
+	if (SKIN_COUNT >= 3) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices.z]) * vBoneWeight.z;
+	if (SKIN_COUNT >= 4) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices.w]) * vBoneWeight.w;
+	if (SKIN_COUNT >= 5) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices2.x]) * vBoneWeight2.x;
+	if (SKIN_COUNT >= 6) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices2.y]) * vBoneWeight2.y;
+	if (SKIN_COUNT >= 7) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices2.z]) * vBoneWeight2.z;
+	if (SKIN_COUNT >= 8) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices2.w]) * vBoneWeight2.w;
+
     return newPosition;
 }
 
-vec3 skinNormal(vec3 nr, ivec4 index, vec4 weights)
+vec3 skinNormal(vec3 nr)
 {
-    vec3 newNormal = vec3(0);
+    vec3 newNormal = nr;
 
-	if (SKIN_COUNT >= 1)
-		newNormal +=  nr * mat3(cBoneMatrices[index.x]) * weights.x;
-	if (SKIN_COUNT >= 2)
-		newNormal += nr *  mat3(cBoneMatrices[index.y]) * weights.y;
-	if (SKIN_COUNT >= 3)
-		newNormal += nr * mat3(cBoneMatrices[index.z]) * weights.z;
-	if (SKIN_COUNT >= 4)
-		newNormal += nr * mat3(cBoneMatrices[index.w]) * weights.w;
-	
+	if (SKIN_COUNT >= 1) newNormal =  nr * mat3(cBoneMatrices[vBoneIndices.x]) * vBoneWeight.x;
+	if (SKIN_COUNT >= 2) newNormal += nr * mat3(cBoneMatrices[vBoneIndices.y]) * vBoneWeight.y;
+	if (SKIN_COUNT >= 3) newNormal += nr * mat3(cBoneMatrices[vBoneIndices.z]) * vBoneWeight.z;
+	if (SKIN_COUNT >= 4) newNormal += nr * mat3(cBoneMatrices[vBoneIndices.w]) * vBoneWeight.w;
+	if (SKIN_COUNT >= 5) newNormal += nr * mat3(cBoneMatrices[vBoneIndices2.x]) * vBoneWeight2.x;
+	if (SKIN_COUNT >= 6) newNormal += nr * mat3(cBoneMatrices[vBoneIndices2.y]) * vBoneWeight2.y;
+	if (SKIN_COUNT >= 7) newNormal += nr * mat3(cBoneMatrices[vBoneIndices2.z]) * vBoneWeight2.z;
+	if (SKIN_COUNT >= 8) newNormal += nr * mat3(cBoneMatrices[vBoneIndices2.w]) * vBoneWeight2.w;
+
     return newNormal;
 }
 
@@ -277,22 +277,9 @@ mat2x4 get_srt(int type)
 void main()
 {		
 	//position
-	vec4 position = vec4(vPosition.xyz, 1.0);
-	vec3 normal = vNormal.xyz;
-	vec3 tangent = vTangent.xyz;
-
-	if (SKIN_COUNT > 0)
-	{
-		position = skin(vPosition.xyz, vBoneIndices, vBoneWeight);
-		normal = skinNormal(vNormal.xyz, vBoneIndices, vBoneWeight);
-		tangent = skinNormal(vTangent.xyz, vBoneIndices, vBoneWeight);
-	}
-	if (SKIN_COUNT > 4)
-	{
-		position += skin(vPosition.xyz, vBoneIndices2, vBoneWeight2);
-		normal += skinNormal(vNormal.xyz, vBoneIndices2, vBoneWeight2);
-		tangent += skinNormal(vTangent.xyz, vBoneIndices2, vBoneWeight2);
-	}
+	vec4 position = skin(vPosition.xyz);
+	vec3 normal = skinNormal(vNormal.xyz);
+	vec3 tangent = skinNormal(vTangent.xyz);
 
     gl_Position = vec4(shape.cTranslation.xyz + position.xyz, 1) * context.cViewProj;
 	//view position to compute fog
