@@ -115,8 +115,10 @@ layout (location = 1) out vec4 oWorldNrm;
 layout (location = 2) out vec4 oNormalizedLinearDepth;
 layout (location = 3) out vec4 oBaseColor;
 
-#define ENABLE_ALPHA_MASK false
-#define ENABLE_NORMAL_MAP true
+#define enable_base_color true
+#define enable_base_color_mul_color false
+
+#define enable_normal true
 
 #define o_base_color     10
 #define o_normal         20
@@ -339,6 +341,17 @@ vec4 CalculateUniform(sampler2D cTexture, int uv_selector, bool enable, vec4 mul
     return uniform_output;
 }
 
+vec4 CalculateBaseColor()
+{
+    vec4 basecolor_output = vec4(1.0);
+    if (enable_base_color) //Todo third argument uses MdlEnvView.data[0x12A].x, a global LOD value
+         basecolor_output = texture(cTextureBaseColor, SelectTexCoord(base_color_uv_selector));
+    if (enable_base_color_mul_color)
+        basecolor_output *= mat.base_color_mul_color;
+
+    return basecolor_output;
+}
+
 #define CALCULATE_UNIFORM(num) \
     CalculateUniform(cTextureUniform##num, \
         uniform##num##_uv_selector, \
@@ -355,8 +368,7 @@ vec4 CalculateUniform(sampler2D cTexture, int uv_selector, bool enable, vec4 mul
 
 vec4 CalculateOutput(int flag)
 {
-    if (flag == 10)
-         return texture(cTextureBaseColor, SelectTexCoord(base_color_uv_selector));
+    if (flag == 10) CalculateBaseColor();
     else if (flag == 15) //in_attr11 vertex colors
           return fVertexColor;
     else if (flag == 20)
