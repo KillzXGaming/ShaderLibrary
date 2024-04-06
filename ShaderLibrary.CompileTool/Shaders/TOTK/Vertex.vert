@@ -16,6 +16,8 @@
 #define TEXCOORD3_MAPPING 0
 #define TEXCOORD4_MAPPING 0
 
+#define TOON_SPEC_SRT 3
+
 const int MAX_BONE_COUNT = 100;
 
 const int undef = 0;
@@ -198,34 +200,34 @@ vec4 calc_fog(vec3 pos)
 	return fog_output;
 }
 
-vec4 skin(vec3 pos, ivec4 index)
+vec4 skin(vec3 pos, ivec4 index, vec4 weights)
 {
-    vec4 newPosition = vec4(pos.xyz, 1.0);
+    vec4 newPosition = vec4(0.0, 0.0, 0.0, 1.0);
 	
 	if (SKIN_COUNT >= 1)
-		newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * vBoneWeight.x;
+		newPosition +=  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * weights.x;
 	if (SKIN_COUNT >= 2)
-		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.y]) * vBoneWeight.y;
+		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.y]) * weights.y;
 	if (SKIN_COUNT >= 3)
-		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.z]) * vBoneWeight.z;
+		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.z]) * weights.z;
 	if (SKIN_COUNT >= 4)
-		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.w]) * vBoneWeight.w;
+		newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.w]) * weights.w;
 		
     return newPosition;
 }
 
-vec3 skinNormal(vec3 nr, ivec4 index)
+vec3 skinNormal(vec3 nr, ivec4 index, vec4 weights)
 {
     vec3 newNormal = vec3(0);
 
 	if (SKIN_COUNT >= 1)
-		newNormal =  nr * mat3(cBoneMatrices[index.x]) * vBoneWeight.x;
+		newNormal +=  nr * mat3(cBoneMatrices[index.x]) * weights.x;
 	if (SKIN_COUNT >= 2)
-		newNormal += nr *  mat3(cBoneMatrices[index.y]) * vBoneWeight.y;
+		newNormal += nr *  mat3(cBoneMatrices[index.y]) * weights.y;
 	if (SKIN_COUNT >= 3)
-		newNormal += nr * mat3(cBoneMatrices[index.z]) * vBoneWeight.z;
+		newNormal += nr * mat3(cBoneMatrices[index.z]) * weights.z;
 	if (SKIN_COUNT >= 4)
-		newNormal += nr * mat3(cBoneMatrices[index.w]) * vBoneWeight.w;
+		newNormal += nr * mat3(cBoneMatrices[index.w]) * weights.w;
 	
     return newNormal;
 }
@@ -273,20 +275,34 @@ mat2x4 get_srt(int type)
 }
  
 void main()
-{	
-	ivec4 bone_index = vBoneIndices;
-	
+{		
 	//position
-	vec4 position = skin(vPosition.xyz, bone_index);
+	vec4 position = vec4(vPosition.xyz, 1.0);
+	vec3 normal = vNormal.xyz;
+	vec3 tangent = vTangent.xyz;
+
+	if (SKIN_COUNT > 0)
+	{
+		position = skin(vPosition.xyz, vBoneIndices, vBoneWeight);
+		normal = skinNormal(vNormal.xyz, vBoneIndices, vBoneWeight);
+		tangent = skinNormal(vTangent.xyz, vBoneIndices, vBoneWeight);
+	}
+	if (SKIN_COUNT > 4)
+	{
+		position += skin(vPosition.xyz, vBoneIndices2, vBoneWeight2);
+		normal += skinNormal(vNormal.xyz, vBoneIndices2, vBoneWeight2);
+		tangent += skinNormal(vTangent.xyz, vBoneIndices2, vBoneWeight2);
+	}
+
     gl_Position = vec4(shape.cTranslation.xyz + position.xyz, 1) * context.cViewProj;
 	//view position to compute fog
 	vec3 view_p = (position.xyz * mat3(context.cView)).xyz;
 
 	//normals
-	fNormals = vec4(skinNormal(vNormal.xyz, bone_index).xyz, 1.0);
+	fNormals = vec4(normal.xyz, 1.0);
 
 	//tangents
-	fTangents.xyz = skinNormal(vTangent.xyz, bone_index);
+	fTangents.xyz = tangent.xyz;
 	fTangents.w = vTangent.w;
 
 	//material tex coords
