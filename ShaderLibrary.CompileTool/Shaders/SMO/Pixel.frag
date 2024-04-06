@@ -3,6 +3,8 @@
 #define ENABLE_ALPHA_MASK false
 #define ENABLE_NORMAL_MAP true
 
+
+
 layout (binding = 2, std140) uniform MdlEnvView
 {
     mat3x4 cView;
@@ -33,6 +35,22 @@ layout (binding = 8, std140) uniform HDRTranslate
 
 layout (binding = 3, std140) uniform Material
 {
+    vec4 const_color0;
+    vec4 const_color1;
+    vec4 const_color2;
+    vec4 const_color3;
+    float const_single0;
+    float const_single1;
+    float const_single2;
+    float const_single3;
+    vec4 base_color_mul_color;
+    vec4 uniform0_mul_color;
+    vec4 uniform1_mul_color;
+    vec4 uniform2_mul_color;
+    vec4 uniform3_mul_color;
+    vec4 uniform4_mul_color;
+    vec4 proc_texture_2d_mul_color;
+    vec4 proc_texture_3d_mul_color;
     mat2x4 tex_mtx0;
     mat2x4 tex_mtx1;
     mat2x4 tex_mtx2;
@@ -94,6 +112,7 @@ layout (location = 2) in vec4 fTangents;
 layout (location = 3) in vec4 fTexCoords23;
 layout (location = 4) in vec4 fLightColor;
 layout (location = 5) in vec4 fViewDirection;
+layout (location = 6) in vec4 fVertexColor;
 
 layout (location = 0) out vec4 oLightBuf;
 layout (location = 1) out vec4 oWorldNrm;
@@ -137,6 +156,11 @@ const int FUV_MTX3 = 13;
 
 #define enable_blend0        true
 
+#define SPHERE_CONST_COLOR0 2
+#define SPHERE_CONST_COLOR1 0
+#define SPHERE_CONST_COLOR2 0
+#define SPHERE_CONST_COLOR3 0
+
 vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
 {
     return vec4(baseColor, roughness);
@@ -163,9 +187,9 @@ vec4 GetComp(vec4 v, int comp_mask)
     switch (comp_mask)
     {
         case 10: return v.rgba;
-        case 20: return v.rrrr;
-        case 30: return v.gggg;
-        case 50: return v.rgba;
+        case 30: return v.rrrr;
+        case 40: return v.gggg;
+        case 50: return v.bbbb;
         case 60: return v.aaaa;
     }
     return v.rgba;
@@ -188,16 +212,43 @@ vec2 SelectTexCoord(int mtx_select)
 
 vec4 CalculateBlend(vec4 src, vec4 dst, vec4 cof, vec4 ind, int equation)
 {
+    if      (equation == 0) return fma(src - dst, cof, dst);
+    else if (equation == 4) 
+    {
+        float v0 = dst.y + cof.y;
+        float v1 = dst.a + cof.a;
+        float v2 = dst.r + cof.r + src.r;
+        float v3 = dst.r + cof.r;
+
+        return fma(src - dst, cof, dst);
+    }
+
     return src;
+}
+
+vec4 CalculateSphereRate(int color_type, vec4 const_color, float sphere_rate_color)
+{
+    float temp_19 = 1.0; //1.0 in shader
+    if (color_type == 1)
+    {
+        float amount = clamp(exp2(log2(temp_19) * sphere_rate_color), 0.0, 1.0);
+        return const_color * amount;
+    }
+    else if (color_type == 1)
+    {
+        float amount = clamp(exp2(log2(0.0 - temp_19 + 1.0) * sphere_rate_color), 0.0, 1.0);
+        return const_color * amount;
+    }
+    else
+        return const_color;
 }
 
 vec4 CalculateOutput(int flag)
 {
-    int kind = (flag / 10) | 0;
-    int instance = flag % 10;
-
     if (flag == 10)
          return texture(cTextureBaseColor, SelectTexCoord(base_color_uv_selector));
+    else if (flag == 15) //in_attr11 vertex colors
+          return fVertexColor;
     else if (flag == 20)
         return texture(cTextureNormal,     SelectTexCoord(normal_uv_selector));
     else if (flag == 30)
@@ -212,10 +263,38 @@ vec4 CalculateOutput(int flag)
          return texture(cTextureUniform3, SelectTexCoord(uniform3_uv_selector));
     else if (flag == 54)
          return texture(cTextureUniform4, SelectTexCoord(uniform4_uv_selector));
-    else if (flag == 115) //constants
-         return vec4(0.0);
-    else if (flag == 116) //constants
-         return vec4(1.0);
+    else if (flag == 60) //sphere rate 0
+        return CalculateSphereRate(SPHERE_CONST_COLOR0, mat.const_color0, mat.sphere_rate_color0);
+    else if (flag == 61) //sphere rate 1
+        return CalculateSphereRate(SPHERE_CONST_COLOR1, mat.const_color1, mat.sphere_rate_color1);
+    else if (flag == 62) //sphere rate 2
+        return CalculateSphereRate(SPHERE_CONST_COLOR2, mat.const_color2, mat.sphere_rate_color2);
+    else if (flag == 63) //sphere rate 3
+        return CalculateSphereRate(SPHERE_CONST_COLOR3, mat.const_color3, mat.sphere_rate_color3);
+    else if (flag == 70) return vec4(0.0); //cFrameBufferTex tex
+    else if (flag == 71) return vec4(0.0); //cGBufferBaseColorTex tex
+    else if (flag == 72) return vec4(0.0); //cGBufferNormalTex tex
+    else if (flag == 73) return vec4(0.0); //gbuffer decode from base color
+    else if (flag == 74) return vec4(0.0); //gbuffer decode from base color
+    else if (flag == 78) return vec4(0.0); //linear depth
+
+    else if (flag == 80) return vec4(0.0); //blend 0
+    else if (flag == 81) return vec4(0.0); //blend 1
+    else if (flag == 82) return vec4(0.0); //blend 2
+    else if (flag == 83) return vec4(0.0); //blend 3
+    else if (flag == 84) return vec4(0.0); //blend 4
+    else if (flag == 85) return vec4(0.0); //blend 5
+
+    else if (flag == 110) return vec4(mat.const_single0); //Mat.const_single0
+    else if (flag == 111) return vec4(mat.const_single1); //Mat.const_single1
+    else if (flag == 112) return vec4(mat.const_single2); //Mat.const_single2
+    else if (flag == 113) return vec4(mat.const_single3); //Mat.const_single3
+    else if (flag == 115) return vec4(0.0); //constant
+    else if (flag == 116) return vec4(1.0); //constant
+    else if (flag == 140) return vec4(0.0); //ModelAdditionalInfo.uv_offset.z
+    else if (flag == 160) return vec4(0.0); //proc texture 2d
+    else if (flag == 170) return vec4(0.0); //proc texture 3d
+
     else if (flag == 8) 
          return vec4(0.0); //blend todo
     else

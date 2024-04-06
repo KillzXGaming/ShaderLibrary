@@ -50,6 +50,22 @@ layout (binding = 2, std140) uniform MdlEnvView
 
 layout (binding = 3, std140) uniform Material
 {
+    vec4 const_color0;
+    vec4 const_color1;
+    vec4 const_color2;
+    vec4 const_color3;
+    float const_single0;
+    float const_single1;
+    float const_single2;
+    float const_single3;
+    vec4 base_color_mul_color;
+    vec4 uniform0_mul_color;
+    vec4 uniform1_mul_color;
+    vec4 uniform2_mul_color;
+    vec4 uniform3_mul_color;
+    vec4 uniform4_mul_color;
+    vec4 proc_texture_2d_mul_color;
+    vec4 proc_texture_3d_mul_color;
     mat2x4 tex_mtx0;
     mat2x4 tex_mtx1;
     mat2x4 tex_mtx2;
@@ -112,6 +128,7 @@ layout (location = 2) out vec4 fTangents;
 layout (location = 3) out vec4 fTexCoords23;
 layout (location = 4) out vec4 fLightColor;
 layout (location = 5) out vec4 fViewDirection;
+layout (location = 6) out vec4 fVertexColor;
 
 vec4 skin(vec3 pos, ivec4 index)
 {
@@ -216,6 +233,7 @@ void main()
     vec3 light_color = textureLod(cDirectionalLightColor, vec2(mdlEnvView.Dir.w, 0.5), 0.0).xyz;
     fLightColor.xyz = light_color;
 
+    fVertexColor = vColor;
 
     //world pos - camera pos for eye position
     fViewDirection.xyz = normalize(vec3(
