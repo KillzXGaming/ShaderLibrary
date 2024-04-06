@@ -101,6 +101,9 @@ layout (binding = 6) uniform sampler2D cTextureUniform4;
 
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 22) uniform sampler2D cTextureMaterialLightSphere;
+layout (binding = 23) uniform sampler2D cExposureTexture;
+
+
 
 layout (location = 0) in vec4 fNormalsDepth;
 layout (location = 1) in vec4 fTexCoords01;
@@ -123,8 +126,14 @@ const int FUV_MTX3 = 13;
 
 #define enable_base_color true
 #define enable_base_color_mul_color false
-
 #define enable_normal true
+#define enable_ao true
+#define enable_emission true
+
+#define emission_type 1
+#define emission_scale_type 7
+
+#define vtxcolor_type 0
 
 #define o_base_color     10
 #define o_normal         20
@@ -132,6 +141,8 @@ const int FUV_MTX3 = 13;
 #define o_metalness      51
 #define o_sss            52
 #define o_emission       50
+#define o_ao 50
+#define o_transparent_tex 50
 
 #define base_color_uv_selector   FUV_MTX0
 #define normal_uv_selector       FUV_MTX0
@@ -348,6 +359,13 @@ vec4 CalculateBaseColor()
          basecolor_output = texture(cTextureBaseColor, SelectTexCoord(base_color_uv_selector));
     if (enable_base_color_mul_color)
         basecolor_output *= mat.base_color_mul_color;
+    if (vtxcolor_type == 0)
+        basecolor_output.rgb *= fVertexColor.rgb;
+    else if (vtxcolor_type == 3)
+    {
+        basecolor_output.rgb *= basecolor_output.rgb +
+            (basecolor_output.rgb *-fVertexColor.rgb + fVertexColor.rgb);
+    }
 
     return basecolor_output;
 }
@@ -555,6 +573,30 @@ vec3 CalculateNormals(vec2 normals, vec2 normal_map)
     return normalize(tbn_matrix * tangent_normal).xyz;
 }
 
+vec3 CalculateEmission(vec3 sphere_light_map)
+{
+    vec3 emission = vec3(0.0);
+
+    if (enable_emission)
+    {
+        emission = CalculateOutput(o_emission).rgb;
+
+        if (emission_scale_type == 7)
+        {   
+            //exposure scale? Todo confirm if this works
+            float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).w;
+            emission *= 1.0 / exposure * mdlEnvView.cProjInvNoPos[2].x;
+        }
+
+        if (vtxcolor_type == 2)
+            emission *= fVertexColor.rgb;
+
+        if (emission_scale_type == 1) //material light sphere
+            emission *= sphere_light_map.rgb;
+    }
+    return emission;
+}
+
 void main()
 {
     //Calc last to first incase blend modes reference another
@@ -570,7 +612,8 @@ void main()
     float metalness   = CalculateOutput(o_metalness).r;
     float roughness   = CalculateOutput(o_roughness).r;
     vec4 sss          = CalculateOutput(o_sss);
-    vec4 emission          = CalculateOutput(o_emission);
+    vec4 ao           = CalculateOutput(o_ao);
+    vec4 transparent_tex = CalculateOutput(o_transparent_tex);
 
     //Roughness adjust
     roughness *= mat.force_roughness;
@@ -606,6 +649,9 @@ void main()
     //Adjust for metalness.
     diffuseTerm *= clamp(1.0 - metalness, 0.0, 1.0);
     diffuseTerm *= vec3(1) - kS;
+
+    //Emission
+    vec3 emission = CalculateEmission(sphere_map);
 
     oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm + emission.rgb;
 
