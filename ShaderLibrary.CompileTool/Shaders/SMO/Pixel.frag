@@ -139,6 +139,12 @@ const int FUV_MTX3 = 13;
 #define uniform3_uv_selector     FUV_MTX0
 #define uniform4_uv_selector     FUV_MTX0
 
+#define enable_uniform0     true
+#define enable_uniform1     true
+#define enable_uniform2     true
+#define enable_uniform3     true
+#define enable_uniform4     true
+
 #define enable_uniform0_mul_vtxcolor     false
 #define enable_uniform1_mul_vtxcolor     false
 #define enable_uniform2_mul_vtxcolor     false
@@ -156,27 +162,90 @@ const int FUV_MTX3 = 13;
 #define enable_uniform2_roughness_lod false
 #define enable_uniform3_roughness_lod false
 #define enable_uniform4_roughness_lod false
+#define enable_uniform5_roughness_lod false
 
 #define blend0_src           10
+#define blend1_src           10
+#define blend2_src           10
+#define blend3_src           10
+#define blend4_src           10
+#define blend5_src           10
+
 #define blend0_src_ch        10
+#define blend1_src_ch        10
+#define blend2_src_ch        10
+#define blend3_src_ch        10
+#define blend4_src_ch        10
+#define blend5_src_ch        10
 
 #define blend0_dst           50
+#define blend1_dst           50
+#define blend2_dst           50
+#define blend3_dst           50
+#define blend4_dst           50
+#define blend5_dst           50
+
 #define blend0_dst_ch        10
+#define blend1_dst_ch        10
+#define blend2_dst_ch        10
+#define blend3_dst_ch        10
+#define blend4_dst_ch        10
+#define blend5_dst_ch        10
 
 #define blend0_cof           61
+#define blend1_cof           61
+#define blend2_cof           61
+#define blend3_cof           61
+#define blend4_cof           61
+#define blend5_cof           61
+
 #define blend0_cof_ch        50
+#define blend1_cof_ch        50
+#define blend2_cof_ch        50
+#define blend3_cof_ch        50
+#define blend4_cof_ch        50
+#define blend5_cof_ch        50
+
 #define blend0_cof_map       50
+#define blend1_cof_map       50
+#define blend2_cof_map       50
+#define blend3_cof_map       50
+#define blend4_cof_map       50
+#define blend5_cof_map       50
 
 #define blend0_indirect_map  50
+#define blend1_indirect_map  50
+#define blend2_indirect_map  50
+#define blend3_indirect_map  50
+#define blend4_indirect_map  50
+#define blend5_indirect_map  50
 
 #define blend0_eq            0
+#define blend1_eq            0
+#define blend2_eq            0
+#define blend3_eq            0
+#define blend4_eq            0
+#define blend5_eq            0
 
 #define enable_blend0        true
+#define enable_blend1        false
+#define enable_blend2        false
+#define enable_blend3        false
+#define enable_blend4        false
+#define enable_blend5        false
 
 #define SPHERE_CONST_COLOR0 2
 #define SPHERE_CONST_COLOR1 0
 #define SPHERE_CONST_COLOR2 0
 #define SPHERE_CONST_COLOR3 0
+
+//Variables for setting blend for outputs later
+vec4 BLEND0_OUTPUT;
+vec4 BLEND1_OUTPUT;
+vec4 BLEND2_OUTPUT;
+vec4 BLEND3_OUTPUT;
+vec4 BLEND4_OUTPUT;
+vec4 BLEND5_OUTPUT;
 
 vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
 {
@@ -226,37 +295,7 @@ vec2 SelectTexCoord(int mtx_select)
         return fTexCoords01.xy;
 }
 
-float BlendCompareComponent(float src, float dst, float cof)
-{
-    float cmp = (src.r < 0.5) ? 0.0 : 1.0;
-    float n = -2.0 * src.x + 2.0;
-    float func = 2.0 * src.x * dst.x * cof.x + 2.0 * src.x - src.x * cof.x;
-    return func + cmp * (-func - dst.x * cof.x * (-n) + cmp);
-}
-
-vec4 CalculateBlend(vec4 src, vec4 dst, vec4 cof, vec4 ind, int equation)
-{
-    if      (equation == 0) return fma(src - dst, cof, dst);
-    else if (equation == 1) return fma(dst, cof, src);
-    else if (equation == 2) return dst * cof * src;
-    else if (equation == 3) return fma(dst, 0.0 - cof, src); 
-    else if (equation == 4) return dst + cof + src; 
-    else if (equation == 5) return fma(dst * cof, 0.0 - src, dst * cof) + src;
-    else if (equation == 6) //Compare func 
-    {
-        src.x = BlendCompareComponent(src.x, dst.x, cof.x);
-        src.y = BlendCompareComponent(src.y, dst.y, cof.y);
-        src.z = BlendCompareComponent(src.z, dst.z, cof.z);
-        src.w = BlendCompareComponent(src.w, dst.w, cof.w);
-        return src;
-    }
-    else if (equation == 7) return (src + dst) * cof; 
-    else if (equation == 8) return (src - dst) * cof; 
-
-    return src;
-}
-
-vec4 CalculateSphereRate(int sphere_color_type, vec4 const_color, float sphere_rate_color)
+vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
 {
     float sphere_p = 1.0; //1.0 
     if (sphere_color_type > 0)
@@ -284,12 +323,12 @@ vec4 CalculateSphereRate(int sphere_color_type, vec4 const_color, float sphere_r
         return const_color; //type 0 defaults to const color
 }
 
-vec4 CalculateUniform(sampler2D cTexture, int uv_selector, vec4 mul_color,
+vec4 CalculateUniform(sampler2D cTexture, int uv_selector, bool enable, vec4 mul_color,
     bool enable_mul_color, bool enable_mul_vtx_color, bool enable_roughness_lod)
 {
-    //Todo third argument uses MdlEnvView.data[0x12A].x; if not using enable_roughness_lod
-    vec4 uniform_output = texture(cTexture, SelectTexCoord(uv_selector));
-
+    vec4 uniform_output = vec4(1.0);
+    if (enable) //Todo third argument uses MdlEnvView.data[0x12A].x, a global LOD value
+         uniform_output = texture(cTexture, SelectTexCoord(uv_selector));
     if (enable_roughness_lod)
          uniform_output = textureLod(cTexture, SelectTexCoord(uv_selector), 0.0);
     if (enable_mul_color)
@@ -303,10 +342,16 @@ vec4 CalculateUniform(sampler2D cTexture, int uv_selector, vec4 mul_color,
 #define CALCULATE_UNIFORM(num) \
     CalculateUniform(cTextureUniform##num, \
         uniform##num##_uv_selector, \
+        enable_uniform##num##, \
         mat.uniform##num##_mul_color,  \
         enable_uniform##num##_mul_color, \
         enable_uniform##num##_mul_vtxcolor, \
         enable_uniform##num##_roughness_lod) \
+
+#define CALCULATE_CONST_COLOR(num) \
+    CalculateSphereConstColor(SPHERE_CONST_COLOR##num##,\
+           mat.const_color##num##, \
+           mat.sphere_rate_color##num##) \
 
 vec4 CalculateOutput(int flag)
 {
@@ -323,14 +368,10 @@ vec4 CalculateOutput(int flag)
     else if (flag == 52) return CALCULATE_UNIFORM(2);
     else if (flag == 53) return CALCULATE_UNIFORM(2);
     else if (flag == 54) return CALCULATE_UNIFORM(3);
-    else if (flag == 60) //sphere rate 0
-        return CalculateSphereRate(SPHERE_CONST_COLOR0, mat.const_color0, mat.sphere_rate_color0);
-    else if (flag == 61) //sphere rate 1
-        return CalculateSphereRate(SPHERE_CONST_COLOR1, mat.const_color1, mat.sphere_rate_color1);
-    else if (flag == 62) //sphere rate 2
-        return CalculateSphereRate(SPHERE_CONST_COLOR2, mat.const_color2, mat.sphere_rate_color2);
-    else if (flag == 63) //sphere rate 3
-        return CalculateSphereRate(SPHERE_CONST_COLOR3, mat.const_color3, mat.sphere_rate_color3);
+    else if (flag == 60) return CALCULATE_CONST_COLOR(0); //sphere rate 0
+    else if (flag == 61) return CALCULATE_CONST_COLOR(1); //sphere rate 1
+    else if (flag == 62) return CALCULATE_CONST_COLOR(2); //sphere rate 2
+    else if (flag == 63) return CALCULATE_CONST_COLOR(3); //sphere rate 3
     else if (flag == 70) return vec4(0.0); //cFrameBufferTex tex
     else if (flag == 71) return vec4(0.0); //cGBufferBaseColorTex tex
     else if (flag == 72) return vec4(0.0); //cGBufferNormalTex tex
@@ -338,12 +379,12 @@ vec4 CalculateOutput(int flag)
     else if (flag == 74) return vec4(0.0); //gbuffer decode from base color
     else if (flag == 78) return vec4(0.0); //linear depth
 
-    else if (flag == 80) return vec4(0.0); //blend 0
-    else if (flag == 81) return vec4(0.0); //blend 1
-    else if (flag == 82) return vec4(0.0); //blend 2
-    else if (flag == 83) return vec4(0.0); //blend 3
-    else if (flag == 84) return vec4(0.0); //blend 4
-    else if (flag == 85) return vec4(0.0); //blend 5
+    else if (flag == 80) return BLEND0_OUTPUT; //blend 0
+    else if (flag == 81) return BLEND1_OUTPUT; //blend 1
+    else if (flag == 82) return BLEND2_OUTPUT; //blend 2
+    else if (flag == 83) return BLEND3_OUTPUT; //blend 3
+    else if (flag == 84) return BLEND4_OUTPUT; //blend 4
+    else if (flag == 85) return BLEND5_OUTPUT; //blend 5
 
     else if (flag == 110) return vec4(mat.const_single0); //Mat.const_single0
     else if (flag == 111) return vec4(mat.const_single1); //Mat.const_single1
@@ -355,13 +396,57 @@ vec4 CalculateOutput(int flag)
     else if (flag == 160) return vec4(0.0); //proc texture 2d
     else if (flag == 170) return vec4(0.0); //proc texture 3d
 
-    else if (flag == 8) 
-         return vec4(0.0); //blend todo
-    else
-        return vec4(0.0);
-
     return vec4(0.0);
 }
+
+float BlendCompareComponent(float src, float dst, float cof)
+{
+    float cmp = (src.r < 0.5) ? 0.0 : 1.0;
+    float n = -2.0 * src.x + 2.0;
+    float func = 2.0 * src.x * dst.x * cof.x + 2.0 * src.x - src.x * cof.x;
+    return func + cmp * (-func - dst.x * cof.x * (-n) + cmp);
+}
+
+vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
+       int src_ch, int dst_ch, int cof_ch, int ind, int equation)
+{
+    if (!enable)
+        return vec4(0.0);
+
+    vec4 src = CalculateOutput(src_id);
+    vec4 dst = CalculateOutput(dst_id);
+    vec4 cof = CalculateOutput(cof_id);
+
+    if      (equation == 0) return fma(src - dst, cof, dst);
+    else if (equation == 1) return fma(dst, cof, src);
+    else if (equation == 2) return dst * cof * src;
+    else if (equation == 3) return fma(dst, 0.0 - cof, src); 
+    else if (equation == 4) return dst + cof + src; 
+    else if (equation == 5) return fma(dst * cof, 0.0 - src, dst * cof) + src;
+    else if (equation == 6) //Compare func 
+    {
+        src.x = BlendCompareComponent(src.x, dst.x, cof.x);
+        src.y = BlendCompareComponent(src.y, dst.y, cof.y);
+        src.z = BlendCompareComponent(src.z, dst.z, cof.z);
+        src.w = BlendCompareComponent(src.w, dst.w, cof.w);
+        return src;
+    }
+    else if (equation == 7) return (src + dst) * cof; 
+    else if (equation == 8) return (src - dst) * cof; 
+
+    return src;
+}
+
+#define CALCULATE_BLEND(num) \
+    CalculateBlend(enable_blend##num##,\
+           blend##num##_src,\
+           blend##num##_dst, \
+           blend##num##_cof, \
+           blend##num##_src_ch, \
+           blend##num##_dst_ch, \
+           blend##num##_cof_ch, \
+           blend##num##_indirect_map, \
+           blend##num##_eq) \
 
 const float PI = 3.14159265359;
 
@@ -460,6 +545,14 @@ vec3 CalculateNormals(vec2 normals, vec2 normal_map)
 
 void main()
 {
+    //Calc last to first incase blend modes reference another
+    BLEND5_OUTPUT = CALCULATE_BLEND(5);
+    BLEND4_OUTPUT = CALCULATE_BLEND(4);
+    BLEND3_OUTPUT = CALCULATE_BLEND(3);
+    BLEND2_OUTPUT = CALCULATE_BLEND(2);
+    BLEND1_OUTPUT = CALCULATE_BLEND(1);
+    BLEND0_OUTPUT = CALCULATE_BLEND(0);
+
     vec4 base_color   = CalculateOutput(o_base_color);
     vec2 normal_map   = CalculateOutput(o_normal).rg;
     float metalness   = CalculateOutput(o_metalness).r;
