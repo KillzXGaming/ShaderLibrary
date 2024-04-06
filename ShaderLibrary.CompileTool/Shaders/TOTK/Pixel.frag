@@ -244,7 +244,7 @@ void main()
 	float bake_shad = texture(cAmientOccMap,     GetTexCoords(TEXTURE_5_TEXCOORD)).w;
 
 	vec2 specular_encoded = EncodeSpecular(spec_mask);
-	vec2 normals = CalculateNormals(fNormals.xy, norm_map);
+	vec2 normals = CalculateNormals(fNormals.xy, norm_map).xy;
 
 	oMaterialID.x = CHARA_SKIN_MATID; //material ID to display in the deferred pass
 	oMaterialID.y = p_object_attribute; //always set as Y
