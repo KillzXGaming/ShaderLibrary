@@ -548,7 +548,7 @@ vec3 CalculateNormals(vec2 normals, vec2 normal_map)
     mat3 tbn_matrix = mat3(T, B, N);
 
     vec3 tangent_normal = N;
-    if (ENABLE_NORMAL_MAP)
+    if (enable_normal)
     {
         tangent_normal = ReconstructNormal(normal_map);
     }
