@@ -396,12 +396,9 @@ vec4 CalculateBaseColor()
 vec4 CalculateOutput(int flag)
 {
     if (flag == 10) CalculateBaseColor();
-    else if (flag == 15) //in_attr11 vertex colors
-          return fVertexColor;
-    else if (flag == 20)
-        return texture(cTextureNormal,     SelectTexCoord(normal_uv_selector));
-    else if (flag == 30)
-        return vec4(fNormalsDepth.rgb, 0.0); //used in normals when no normal map present
+    else if (flag == 15) return fVertexColor;
+    else if (flag == 20) return texture(cTextureNormal, SelectTexCoord(normal_uv_selector));
+    else if (flag == 30) return vec4(fNormalsDepth.rgb, 0.0); //used in normals when no normal map present
     else if (flag == 50) return CALCULATE_UNIFORM(0);
     else if (flag == 51) return CALCULATE_UNIFORM(1);
     else if (flag == 52) return CALCULATE_UNIFORM(2);
@@ -411,12 +408,12 @@ vec4 CalculateOutput(int flag)
     else if (flag == 61) return CALCULATE_CONST_COLOR(1); //sphere rate 1
     else if (flag == 62) return CALCULATE_CONST_COLOR(2); //sphere rate 2
     else if (flag == 63) return CALCULATE_CONST_COLOR(3); //sphere rate 3
-    else if (flag == 70) return vec4(0.0); //cFrameBufferTex tex
-    else if (flag == 71) return vec4(0.0); //cGBufferBaseColorTex tex
-    else if (flag == 72) return vec4(0.0); //cGBufferNormalTex tex
-    else if (flag == 73) return vec4(0.0); //gbuffer decode from base color
-    else if (flag == 74) return vec4(0.0); //gbuffer decode from base color
-    else if (flag == 78) return vec4(0.0); //linear depth
+    else if (flag == 70) return vec4(0.0); //cFrameBufferTex TODO
+    else if (flag == 71) return vec4(0.0); //cGBufferBaseColorTex TODO
+    else if (flag == 72) return vec4(0.0); //cGBufferNormalTex TODO
+    else if (flag == 73) return vec4(0.0); //gbuffer decode from base color TODO
+    else if (flag == 74) return vec4(0.0); //gbuffer decode from base color TODO
+    else if (flag == 78) return vec4(0.0); //linear depth TODO
 
     else if (flag == 80) return BLEND0_OUTPUT; //blend 0
     else if (flag == 81) return BLEND1_OUTPUT; //blend 1
@@ -431,9 +428,9 @@ vec4 CalculateOutput(int flag)
     else if (flag == 113) return vec4(mat.const_single3); //Mat.const_single3
     else if (flag == 115) return vec4(0.0); //constant
     else if (flag == 116) return vec4(1.0); //constant
-    else if (flag == 140) return vec4(0.0); //ModelAdditionalInfo.uv_offset.z
-    else if (flag == 160) return vec4(0.0); //proc texture 2d
-    else if (flag == 170) return vec4(0.0); //proc texture 3d
+    else if (flag == 140) return vec4(0.0); //ModelAdditionalInfo.uv_offset.z TODO
+    else if (flag == 160) return vec4(0.0); //proc texture 2d TODO
+    else if (flag == 170) return vec4(0.0); //proc texture 3d TODO
 
     return vec4(0.0);
 }
@@ -486,6 +483,24 @@ vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
            blend##num##_cof_ch, \
            blend##num##_indirect_map, \
            blend##num##_eq) \
+
+//Updates any blend variables referenced by flag
+
+
+void TryCalculateReferencedBlend(int flag)
+{
+    if (     flag == 80) BLEND0_OUTPUT = CALCULATE_BLEND(0); //blend 0
+    else if (flag == 81) BLEND1_OUTPUT = CALCULATE_BLEND(1); //blend 1
+    else if (flag == 82) BLEND2_OUTPUT = CALCULATE_BLEND(2); //blend 2
+    else if (flag == 83) BLEND3_OUTPUT = CALCULATE_BLEND(3); //blend 3
+    else if (flag == 84) BLEND4_OUTPUT = CALCULATE_BLEND(4); //blend 4
+    else if (flag == 85) BLEND5_OUTPUT = CALCULATE_BLEND(5); //blend 5}
+}
+
+#define CHECK_CALC_BLEND_REFS(num) \
+    TryCalculateReferencedBlend(blend##num##_src);\
+    TryCalculateReferencedBlend(blend##num##_dst);\
+    TryCalculateReferencedBlend(blend##num##_cof);\
 
 const float PI = 3.14159265359;
 
@@ -590,6 +605,9 @@ vec3 CalculateEmission(vec3 sphere_light_map)
     {
         emission = GetComp(CalculateOutput(o_emission), emission_component).rgb;
 
+        if (vtxcolor_type == 2)
+            emission *= fVertexColor.rgb;
+
         if (emission_scale_type == 7)
         {   
             //exposure scale? Todo confirm if this works
@@ -597,24 +615,33 @@ vec3 CalculateEmission(vec3 sphere_light_map)
             emission *= 1.0 / exposure * mdlEnvView.cProjInvNoPos[2].x;
         }
 
-        if (vtxcolor_type == 2)
-            emission *= fVertexColor.rgb;
-
         if (emission_scale_type == 1) //material light sphere
             emission *= sphere_light_map.rgb;
     }
     return emission;
 }
 
+void SetupBlend()
+{
+    //Calc blending. Compute any references first
+    CHECK_CALC_BLEND_REFS(0);
+    CHECK_CALC_BLEND_REFS(1);
+    CHECK_CALC_BLEND_REFS(2);
+    CHECK_CALC_BLEND_REFS(3);
+    CHECK_CALC_BLEND_REFS(4);
+    CHECK_CALC_BLEND_REFS(5);
+
+    BLEND0_OUTPUT = CALCULATE_BLEND(0);
+    BLEND1_OUTPUT = CALCULATE_BLEND(1);
+    BLEND2_OUTPUT = CALCULATE_BLEND(2);
+    BLEND3_OUTPUT = CALCULATE_BLEND(3);
+    BLEND4_OUTPUT = CALCULATE_BLEND(4);
+    BLEND5_OUTPUT = CALCULATE_BLEND(5);
+}
+
 void main()
 {
-    //Calc last to first incase blend modes reference another
-    BLEND5_OUTPUT = CALCULATE_BLEND(5);
-    BLEND4_OUTPUT = CALCULATE_BLEND(4);
-    BLEND3_OUTPUT = CALCULATE_BLEND(3);
-    BLEND2_OUTPUT = CALCULATE_BLEND(2);
-    BLEND1_OUTPUT = CALCULATE_BLEND(1);
-    BLEND0_OUTPUT = CALCULATE_BLEND(0);
+    SetupBlend();
 
     vec4 base_color           = CalculateOutput(o_base_color);
     vec2 normal_map           = CalculateOutput(o_normal).rg;
