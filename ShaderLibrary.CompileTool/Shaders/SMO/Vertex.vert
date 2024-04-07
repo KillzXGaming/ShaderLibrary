@@ -33,6 +33,7 @@
 #define ENABLE_FUV2 false
 #define ENABLE_FUV3 false
 
+
 layout (binding = 15) uniform sampler2D cDirectionalLightColor;
 
 const int MAX_BONE_COUNT = 100;
@@ -197,7 +198,6 @@ vec2 get_tex_mtx(vec2 tex_coord, int type)
         case 2: return calc_texcoord_matrix(mat.tex_mtx1, tex_coord);
         case 3: return calc_texcoord_matrix(mat.tex_mtx2, tex_coord);
         case 4: return calc_texcoord_matrix(mat.tex_mtx3, tex_coord);
-        //TODO 5+ may include matcap and projection types
         default: return tex_coord;
     }
     return tex_coord;
@@ -245,9 +245,9 @@ void main()
 
     //material tex coords
     fTexCoords01.xy  = get_tex_coord(FUV0_SELECTOR, FUV0_MTX, ENABLE_FUV0); 
-    fTexCoords01.zw  = get_tex_coord(FUV0_SELECTOR, FUV1_MTX, ENABLE_FUV1); 
-    fTexCoords23.xy  = get_tex_coord(FUV0_SELECTOR, FUV2_MTX, ENABLE_FUV2); 
-    fTexCoords23.zw  = get_tex_coord(FUV0_SELECTOR, FUV3_MTX, ENABLE_FUV3); 
+    fTexCoords01.zw  = get_tex_coord(FUV1_SELECTOR, FUV1_MTX, ENABLE_FUV1); 
+    fTexCoords23.xy  = get_tex_coord(FUV2_SELECTOR, FUV2_MTX, ENABLE_FUV2); 
+    fTexCoords23.zw  = get_tex_coord(FUV3_SELECTOR, FUV3_MTX, ENABLE_FUV3); 
 
     vec3 light_color = textureLod(cDirectionalLightColor, vec2(mdlEnvView.Dir.w, 0.5), 0.0).xyz;
     fLightColor.xyz = light_color;

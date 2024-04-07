@@ -132,7 +132,16 @@ const int FUV_MTX3 = 13;
 #define enable_sss true
 #define enable_alpha_mask false
 
+#define enable_indirect0 false
+#define enable_indirect1 false
+
 #define is_apply_irradiance_pixel true
+
+#define indirect0_tgt_uv 10
+#define indirect1_tgt_uv 13
+
+#define indirect0_src_map 30
+#define indirect1_src_map 30
 
 #define alpha_test_func 60 //GEQUAL
 
@@ -272,6 +281,8 @@ vec4 BLEND3_OUTPUT;
 vec4 BLEND4_OUTPUT;
 vec4 BLEND5_OUTPUT;
 
+vec4 fIndirectCoords;
+
 vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
 {
     return vec4(baseColor, roughness);
@@ -308,14 +319,18 @@ vec4 GetComp(vec4 v, int comp_mask)
 
 vec2 SelectTexCoord(int mtx_select)
 {
-    if (mtx_select == 0)
+    if (mtx_select == 10)
         return fTexCoords01.xy;
-    else if  (mtx_select == 1)
+    else if  (mtx_select == 11)
         return fTexCoords01.zy;
-    else if  (mtx_select == 2)
+    else if  (mtx_select == 12)
         return fTexCoords23.xy;
-    else if  (mtx_select == 3)
+    else if  (mtx_select == 13)
         return fTexCoords23.zw;
+    else if  (mtx_select == 20)
+        return fIndirectCoords.xy;
+    else if  (mtx_select == 21)
+        return fIndirectCoords.zw;
     else
         return fTexCoords01.xy;
 }
@@ -506,6 +521,29 @@ void TryCalculateReferencedBlend(int flag)
     TryCalculateReferencedBlend(blend##num##_dst);\
     TryCalculateReferencedBlend(blend##num##_cof);\
 
+void CalculateIndirectCoordinates()
+{
+    ///TODO this is incorrect. Figure out how to apply indirect#_tgt_uv
+    if (enable_indirect0)
+    {   
+        vec2 tex_coords = SelectTexCoord(indirect0_tgt_uv);
+        vec2 ind_offset = CalculateOutput(indirect0_src_map).xy;
+        vec2 scale = mat.indirect0_scale * vec2(-0.5);
+
+        ind_offset *= scale.xy;
+        fIndirectCoords.xy = ind_offset;
+    }
+    if (enable_indirect1)
+    {
+        vec2 tex_coords = SelectTexCoord(indirect1_tgt_uv);
+        vec2 ind_offset = CalculateOutput(indirect1_src_map).xy;
+        vec2 scale = mat.indirect1_scale * vec2(-0.5);
+
+        ind_offset *= scale.xy;
+        fIndirectCoords.zw = ind_offset;
+    }
+}
+
 const float PI = 3.14159265359;
 
 vec3 saturate(vec3 v)
@@ -661,6 +699,7 @@ void SetupBlend()
 
 void main()
 {
+    CalculateIndirectCoordinates();
     SetupBlend();
 
     vec4 base_color           = CalculateOutput(o_base_color);
