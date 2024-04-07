@@ -376,16 +376,16 @@ vec4 CalculateBaseColor()
 #define CALCULATE_UNIFORM(num) \
     CalculateUniform(cTextureUniform##num, \
         uniform##num##_uv_selector, \
-        enable_uniform##num##, \
+        enable_uniform##num, \
         mat.uniform##num##_mul_color,  \
         enable_uniform##num##_mul_color, \
         enable_uniform##num##_mul_vtxcolor, \
         enable_uniform##num##_roughness_lod) \
 
 #define CALCULATE_CONST_COLOR(num) \
-    CalculateSphereConstColor(SPHERE_CONST_COLOR##num##,\
-           mat.const_color##num##, \
-           mat.sphere_rate_color##num##) \
+    CalculateSphereConstColor(SPHERE_CONST_COLOR##num, \
+                            mat.const_color##num, \
+                            mat.sphere_rate_color##num) \
 
 vec4 CalculateOutput(int flag)
 {
@@ -471,7 +471,7 @@ vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
 }
 
 #define CALCULATE_BLEND(num) \
-    CalculateBlend(enable_blend##num##,\
+    CalculateBlend(enable_blend##num,\
            blend##num##_src,\
            blend##num##_dst, \
            blend##num##_cof, \
@@ -638,6 +638,7 @@ void main()
 
     vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
     vec3 kS = FresnelSchlickRoughness(max(dot(N, H), 0.0), f0, roughness);
+    vec3 brdf = BRDF_DFG_Polynomial(L, V, N, f0, roughness);
 
     const float MAX_LOD = 5.0;
 
@@ -651,11 +652,12 @@ void main()
 
     //Adjust for metalness.
     diffuseTerm *= clamp(1.0 - metalness, 0.0, 1.0);
-    diffuseTerm *= vec3(1) - kS;
+    diffuseTerm *= vec3(1) - brdf;
 
     //Emission
     vec3 emission = CalculateEmission(sphere_map);
 
+    //Light output
     oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm + emission.rgb;
 
     //clamp 0 - 2048 due to HDR/tone mapping
