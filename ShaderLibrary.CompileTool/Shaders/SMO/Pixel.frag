@@ -320,28 +320,29 @@ vec2 SelectTexCoord(int mtx_select)
         return fTexCoords01.xy;
 }
 
+float CalulateSphereLight()
+{
+    vec3 normal = fNormalsDepth.xyz;
+    vec3 dir = fViewDirection.xyz;
+
+    float sphere_p = clamp(
+        fma(normal.z, -dir.z * mdlEnvView.cView[2].z + dir.x * mdlEnvView.cView[2].x + dir.y * mdlEnvView.cView[2].y, 
+        fma(normal.x, -dir.z * mdlEnvView.cView[0].z + dir.x * mdlEnvView.cView[0].x + dir.y * mdlEnvView.cView[0].y, 
+            normal.y *-dir.z * mdlEnvView.cView[1].z + dir.x * mdlEnvView.cView[1].x + dir.y * mdlEnvView.cView[1].y)), 
+            0.0, 1.0);
+    return sphere_p;
+}
+
 vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
 {
-    float sphere_p = 1.0; //1.0 
-    if (sphere_color_type > 0)
-    {
-        vec3 normal = fNormalsDepth.xyz;
-        vec3 dir = fViewDirection.xyz;
-
-        sphere_p = clamp(
-            fma(normal.z, -dir.z * mdlEnvView.cView[2].z + dir.x * mdlEnvView.cView[2].x + dir.y * mdlEnvView.cView[2].y, 
-            fma(normal.x, -dir.z * mdlEnvView.cView[0].z + dir.x * mdlEnvView.cView[0].x + dir.y * mdlEnvView.cView[0].y, 
-                normal.y *-dir.z * mdlEnvView.cView[1].z + dir.x * mdlEnvView.cView[1].x + dir.y * mdlEnvView.cView[1].y)), 
-                0.0, 1.0);
-    }
     if (sphere_color_type == 1)
     {
-        float amount = clamp(exp2(log2(sphere_p) * sphere_rate_color), 0.0, 1.0);
+        float amount = clamp(exp2(log2(CalulateSphereLight()) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
     else if (sphere_color_type == 2)
     {
-        float amount = clamp(exp2(log2(0.0 - sphere_p + 1.0) * sphere_rate_color), 0.0, 1.0);
+        float amount = clamp(exp2(log2(0.0 - CalulateSphereLight() + 1.0) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
     else
