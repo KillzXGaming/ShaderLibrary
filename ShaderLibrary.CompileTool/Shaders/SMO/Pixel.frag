@@ -670,7 +670,7 @@ void main()
     vec4 sss                  = CalculateOutput(o_sss);
     vec4 ao                   = CalculateOutput(o_ao);
     vec4 transparent_tex     = CalculateOutput(o_transparent_tex);
-    float alpha      = GetComp(CalculateOutput(o_alpha), alpha_component).r;
+    float alpha      = GetComp(CalculateOutput(o_alpha), alpha_component).w;
 
     //Roughness adjust
     roughness *= mat.force_roughness;
