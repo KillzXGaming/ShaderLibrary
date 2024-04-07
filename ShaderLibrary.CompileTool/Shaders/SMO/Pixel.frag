@@ -129,6 +129,9 @@ const int FUV_MTX3 = 13;
 #define enable_normal true
 #define enable_ao true
 #define enable_emission true
+#define enable_sss true
+
+#define is_apply_irradiance_pixel true
 
 #define emission_type 1
 #define emission_scale_type 7
@@ -628,10 +631,10 @@ void main()
     //PBR
     vec3 I = vec3(0,0,-1) * mat3(mdlEnvView.cView);
     vec3 V = normalize(I); // view
-    vec3 L = normalize(fViewDirection.xyz ); // Light
+    vec3 L = normalize(mdlEnvView.Dir.xyz ); // Light
     vec3 H = normalize(V + L); // half angle
     vec3 R = reflect(I, N); // reflection
-    float NV = saturate(dot(N, I));
+    float NL = saturate(dot(N, L));
 
     vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
     vec3 kS = FresnelSchlickRoughness(max(dot(N, H), 0.0), f0, roughness);
