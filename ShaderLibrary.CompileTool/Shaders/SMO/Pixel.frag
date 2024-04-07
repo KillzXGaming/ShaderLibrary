@@ -637,7 +637,6 @@ vec3 CalculateEmission(vec4 sphere_light_map)
             float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).w;
             emission *= 1.0 / exposure * mdlEnvView.cProjInvNoPos[2].x;
         }
-
     }
     return emission;
 }

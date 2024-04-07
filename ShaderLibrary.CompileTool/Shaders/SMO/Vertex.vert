@@ -10,11 +10,23 @@
 #define FUV2_MTX 0
 #define FUV3_MTX 0
 
-//The UV layer to use
-#define FUV0_SELECTOR 0
-#define FUV1_SELECTOR 0
-#define FUV2_SELECTOR 0
-#define FUV3_SELECTOR 0
+//The UV layer or method to use
+#define FUV_SELECT_UV0 10
+#define FUV_SELECT_UV1 11
+#define FUV_SELECT_UV2 12
+#define FUV_SELECT_UV3 13
+#define FUV_SELECT_IND0 20
+#define FUV_SELECT_IND1 21
+#define FUV_SELECT_SPHERE 30
+#define FUV_SELECT_PROJ 50
+#define FUV_SELECT_PROJ_MTX0 51 //proj_mtx# from model additional info block
+#define FUV_SELECT_PROJ_MTX1 52
+#define FUV_SELECT_PROJ_MTX2 53
+
+#define FUV0_SELECTOR FUV_SELECT_UV0
+#define FUV1_SELECTOR FUV_SELECT_UV0
+#define FUV2_SELECTOR FUV_SELECT_UV0
+#define FUV3_SELECTOR FUV_SELECT_UV0
 
 #define ENABLE_FUV0 true
 #define ENABLE_FUV1 false
@@ -198,9 +210,16 @@ vec2 get_tex_coord(int selector, int mtx_type, bool enable)
 
     switch (selector)
     {
-        case 0: get_tex_mtx(vTexCoords0.xy, mtx_type);
-        case 1: get_tex_mtx(vTexCoords1.xy, mtx_type);
-        case 2: get_tex_mtx(vTexCoords2.xy, mtx_type);
+        case FUV_SELECT_UV0: get_tex_mtx(vTexCoords0.xy, mtx_type);
+        case FUV_SELECT_UV1: get_tex_mtx(vTexCoords1.xy, mtx_type);
+        case FUV_SELECT_UV2: get_tex_mtx(vTexCoords2.xy, mtx_type);
+        case FUV_SELECT_SPHERE:
+        {
+		    //view normal
+		    vec3 view_n = (normalize(vNormal.xyz) * mat3(mdlEnvView.cView)).xyz;
+		    //center the uvs
+		    return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
+         }
         default: //unknown type
         return get_tex_mtx(vTexCoords0.xy, mtx_type);
     }
