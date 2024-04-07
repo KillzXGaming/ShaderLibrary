@@ -714,7 +714,36 @@ void main()
 
     if (enable_alpha_mask)
     {
-        if (alpha_test_func == 60)
+        if (alpha_test_func == 0)
+        {
+            discard;
+        }
+        else if (alpha_test_func == 10)
+        {
+            if (alpha >= mat.alpha_test_value)
+                discard;
+        }
+        else if (alpha_test_func == 20)
+        {
+            if (alpha != mat.alpha_test_value)
+                discard;
+        }
+        else if (alpha_test_func == 30)
+        {
+            if (alpha > mat.alpha_test_value)
+                discard;
+        }
+        else if (alpha_test_func == 40)
+        {
+            if (alpha <= mat.alpha_test_value)
+                discard;
+        }
+        else if (alpha_test_func == 50)
+        {
+            if (alpha == mat.alpha_test_value)
+                discard;
+        }
+        else if (alpha_test_func == 60)
         {
             if (alpha < mat.alpha_test_value)
                 discard;
