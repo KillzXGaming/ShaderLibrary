@@ -146,6 +146,12 @@ const int FUV_MTX3 = 13;
 #define o_emission       50
 #define o_ao 50
 #define o_transparent_tex 50
+#define o_alpha 116
+
+#define roughness_component 30 //red
+#define metalness_component 30 //red
+#define emission_component 10 //rgba
+#define alpha_component 60 //alpha
 
 #define base_color_uv_selector   FUV_MTX0
 #define normal_uv_selector       FUV_MTX0
@@ -446,9 +452,9 @@ vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
     if (!enable)
         return vec4(0.0);
 
-    vec4 src = CalculateOutput(src_id);
-    vec4 dst = CalculateOutput(dst_id);
-    vec4 cof = CalculateOutput(cof_id);
+    vec4 src = GetComp(CalculateOutput(src_id), src_ch);
+    vec4 dst = GetComp(CalculateOutput(dst_id), dst_ch);
+    vec4 cof = GetComp(CalculateOutput(cof_id), cof_ch);
 
     if      (equation == 0) return fma(src - dst, cof, dst);
     else if (equation == 1) return fma(dst, cof, src);
@@ -582,7 +588,7 @@ vec3 CalculateEmission(vec3 sphere_light_map)
 
     if (enable_emission)
     {
-        emission = CalculateOutput(o_emission).rgb;
+        emission = GetComp(CalculateOutput(o_emission), emission_component).rgb;
 
         if (emission_scale_type == 7)
         {   
@@ -610,13 +616,14 @@ void main()
     BLEND1_OUTPUT = CALCULATE_BLEND(1);
     BLEND0_OUTPUT = CALCULATE_BLEND(0);
 
-    vec4 base_color   = CalculateOutput(o_base_color);
-    vec2 normal_map   = CalculateOutput(o_normal).rg;
-    float metalness   = CalculateOutput(o_metalness).r;
-    float roughness   = CalculateOutput(o_roughness).r;
-    vec4 sss          = CalculateOutput(o_sss);
-    vec4 ao           = CalculateOutput(o_ao);
-    vec4 transparent_tex = CalculateOutput(o_transparent_tex);
+    vec4 base_color           = CalculateOutput(o_base_color);
+    vec2 normal_map           = CalculateOutput(o_normal).rg;
+    float metalness   = GetComp(CalculateOutput(o_metalness), metalness_component).r;
+    float roughness   = GetComp(CalculateOutput(o_roughness), roughness_component).r;
+    vec4 sss                  = CalculateOutput(o_sss);
+    vec4 ao                   = CalculateOutput(o_ao);
+    vec4 transparent_tex     = CalculateOutput(o_transparent_tex);
+    vec4 alpha       = GetComp(CalculateOutput(o_alpha), alpha_component);
 
     //Roughness adjust
     roughness *= mat.force_roughness;
@@ -654,11 +661,16 @@ void main()
     diffuseTerm *= clamp(1.0 - metalness, 0.0, 1.0);
     diffuseTerm *= vec3(1) - brdf;
 
-    //Emission
-    vec3 emission = CalculateEmission(sphere_map);
+    //Ambient occ
+    if (enable_ao)
+        diffuseTerm.rgb *= ao.rgb;
 
     //Light output
-    oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm + emission.rgb;
+    oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm;
+
+    //Emission
+    if (enable_emission)
+        oLightBuf.rgb += CalculateEmission(sphere_map).rgb;
 
     //clamp 0 - 2048 due to HDR/tone mapping
     oLightBuf.rgb = max(oLightBuf.rgb, 0.0);
