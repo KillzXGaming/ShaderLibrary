@@ -527,19 +527,17 @@ void CalculateIndirectCoordinates()
     if (enable_indirect0)
     {   
         vec2 tex_coords = SelectTexCoord(indirect0_tgt_uv);
-        vec2 ind_offset = CalculateOutput(indirect0_src_map).xy;
-        vec2 scale = mat.indirect0_scale * vec2(-0.5);
+        vec2 ind_map = CalculateOutput(indirect0_src_map).xy;
+        vec2 ind_offset = (ind_map - vec2(-0.5)) *  mat.indirect0_scale;
 
-        ind_offset *= scale.xy;
         fIndirectCoords.xy = ind_offset;
     }
     if (enable_indirect1)
     {
         vec2 tex_coords = SelectTexCoord(indirect1_tgt_uv);
-        vec2 ind_offset = CalculateOutput(indirect1_src_map).xy;
-        vec2 scale = mat.indirect1_scale * vec2(-0.5);
+        vec2 ind_map = CalculateOutput(indirect1_src_map).xy;
+        vec2 ind_offset = (ind_map - vec2(-0.5)) *  mat.indirect1_scale;
 
-        ind_offset *= scale.xy;
         fIndirectCoords.zw = ind_offset;
     }
 }
