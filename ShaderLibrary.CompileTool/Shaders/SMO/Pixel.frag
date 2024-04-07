@@ -130,8 +130,11 @@ const int FUV_MTX3 = 13;
 #define enable_ao true
 #define enable_emission true
 #define enable_sss true
+#define enable_alpha_mask false
 
 #define is_apply_irradiance_pixel true
+
+#define alpha_test_func 60 //GEQUAL
 
 #define emission_type 1
 #define emission_scale_type 7
@@ -597,7 +600,7 @@ vec3 CalculateNormals(vec2 normals, vec2 normal_map)
     return normalize(tbn_matrix * tangent_normal).xyz;
 }
 
-vec3 CalculateEmission(vec3 sphere_light_map)
+vec3 CalculateEmission(vec4 sphere_light_map)
 {
     vec3 emission = vec3(0.0);
 
@@ -608,15 +611,32 @@ vec3 CalculateEmission(vec3 sphere_light_map)
         if (vtxcolor_type == 2)
             emission *= fVertexColor.rgb;
 
+        //Emission scale
+        if (emission_scale_type == 1) //material light sphere
+            emission = max(sphere_light_map.rgb * emission.rgb, emission.rgb);
+        if (emission_scale_type == 2) //material light sphere max 1.0
+            emission = emission * max(sphere_light_map.rgb, 1.0);
+        if (emission_scale_type == 4) //emission * material light sphere color
+            emission = emission * sphere_light_map.rgb;
+        if (emission_scale_type == 4) //emission * material light sphere scale
+            emission = emission * sphere_light_map.w;
+        if (emission_scale_type == 5) //max sphere light amount
+        {
+            float max_scale = max(max(sphere_light_map.g, sphere_light_map.b), sphere_light_map.r);
+            emission = max_scale * emission;
+        }
+        if (emission_scale_type == 6) //max sphere light amount limited by emission amount
+        {
+            float max_scale = max(max(sphere_light_map.g, sphere_light_map.b), sphere_light_map.r);
+            emission = max(vec3(max_scale) * emission, emission);
+        }
         if (emission_scale_type == 7)
         {   
-            //exposure scale? Todo confirm if this works
+            //exposure scale    
             float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).w;
             emission *= 1.0 / exposure * mdlEnvView.cProjInvNoPos[2].x;
         }
 
-        if (emission_scale_type == 1) //material light sphere
-            emission *= sphere_light_map.rgb;
     }
     return emission;
 }
@@ -650,7 +670,7 @@ void main()
     vec4 sss                  = CalculateOutput(o_sss);
     vec4 ao                   = CalculateOutput(o_ao);
     vec4 transparent_tex     = CalculateOutput(o_transparent_tex);
-    vec4 alpha       = GetComp(CalculateOutput(o_alpha), alpha_component);
+    float alpha      = GetComp(CalculateOutput(o_alpha), alpha_component).r;
 
     //Roughness adjust
     roughness *= mat.force_roughness;
@@ -660,7 +680,7 @@ void main()
     vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
 
     //Sphere mapping
-    vec3 sphere_map = textureLod(cTextureMaterialLightSphere, CalcSphereCoords(N.xyz), sqrt(roughness)).rgb;
+    vec4 sphere_map = textureLod(cTextureMaterialLightSphere, CalcSphereCoords(N.xyz), sqrt(roughness)).rgba;
 
     //PBR
     vec3 I = vec3(0,0,-1) * mat3(mdlEnvView.cView);
@@ -691,6 +711,15 @@ void main()
     //Ambient occ
     if (enable_ao)
         diffuseTerm.rgb *= ao.rgb;
+
+    if (enable_alpha_mask)
+    {
+        if (alpha_test_func == 60)
+        {
+            if (alpha < mat.alpha_test_value)
+                discard;
+        }
+    }
 
     //Light output
     oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm;
