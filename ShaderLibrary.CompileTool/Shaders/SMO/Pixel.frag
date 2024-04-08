@@ -112,6 +112,7 @@ layout (location = 3) in vec4 fTexCoords23;
 layout (location = 4) in vec4 fLightColor;
 layout (location = 5) in vec4 fViewDirection;
 layout (location = 6) in vec4 fVertexColor;
+layout (location = 7) in vec4 fViewPos;
 
 layout (location = 0) out vec4 oLightBuf;
 layout (location = 1) out vec4 oWorldNrm;
@@ -127,8 +128,8 @@ const int FUV_MTX3 = 13;
 #define enable_base_color true
 #define enable_base_color_mul_color false
 #define enable_normal true
-#define enable_ao true
-#define enable_emission true
+#define enable_ao false
+#define enable_emission false
 #define enable_sss true
 #define enable_alpha_mask false
 
@@ -136,6 +137,8 @@ const int FUV_MTX3 = 13;
 #define enable_indirect1 false
 
 #define is_apply_irradiance_pixel true
+
+#define is_forward_ggx true
 
 #define indirect0_tgt_uv 10
 #define indirect1_tgt_uv 13
@@ -283,6 +286,44 @@ vec4 BLEND5_OUTPUT;
 
 vec4 fIndirectCoords;
 
+const float PI = 3.14159265359;
+
+vec3 saturate(vec3 v)
+{
+    return clamp(v, 0.0, 1.0);
+}
+
+float saturate(float v)
+{
+    return clamp(v, 0.0, 1.0);
+}
+
+struct Light
+{
+    vec3 I; //eye
+    vec3 N; //normal
+    vec3 V; //view
+    vec3 H; //half
+    vec3 L; //light
+    vec3 R; //reflect
+    float NV; //dot normal view
+};
+
+Light SetupLight(vec3 N)
+{
+    Light light;
+
+    light.N = N;
+    light.I = vec3(0,0,1) * mat3(mdlEnvView.cView);
+    light.V = normalize(light.I); // view
+    light.L = normalize(mdlEnvView.Dir.xyz ); // Light
+    light.H = normalize(light.V + light.L); // half angle
+    light.R = reflect(light.I, light.N); // reflection
+    light.NV = saturate(dot(light.N, light.V));
+
+    return light;
+}
+
 vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
 {
     return vec4(baseColor, roughness);
@@ -338,7 +379,26 @@ vec2 SelectTexCoord(int mtx_select)
 float CalulateSphereLight()
 {
     vec3 normal = fNormalsDepth.xyz;
-    vec3 dir = fViewDirection.xyz;
+    vec3 dir = -fViewDirection.xyz * mat3(mdlEnvView.cView);
+    dir = normalize(-fViewPos.xyz);
+
+    float N_I = saturate(dot(normal, dir.xyz));
+
+    vec3 viewNormal = normalize(mat3(transpose(inverse(mat3(mdlEnvView.cView)))) * normal);
+
+    float cosTheta = max(dot(dir.xyz, viewNormal), 0.0);
+
+    float R0 = 0.04; // Adjust this to control the strength of the Fresnel effect
+    float fresnel = R0 + (1.0 - R0) * pow(1.0 - cosTheta, 5.0);
+
+    return fresnel;
+
+    return pow(saturate(1.0 + dot(normal, dir.xyz)), 4);
+
+  //  return saturate(dot(normal, dir));
+    return N_I;
+
+    return pow(saturate(1.0 + dot(normal, -fViewPos.xyz)), 4);
 
     float sphere_p = clamp(
         fma(normal.z, -dir.z * mdlEnvView.cView[2].z + dir.x * mdlEnvView.cView[2].x + dir.y * mdlEnvView.cView[2].y, 
@@ -350,6 +410,11 @@ float CalulateSphereLight()
 
 vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
 {
+    return const_color * CalulateSphereLight();
+
+    float amount = clamp(exp2(log2(0.0 - CalulateSphereLight() + 1.0) * sphere_rate_color), 0.0, 1.0);
+    return const_color * amount;
+
     if (sphere_color_type == 1)
     {
         float amount = clamp(exp2(log2(CalulateSphereLight()) * sphere_rate_color), 0.0, 1.0);
@@ -542,18 +607,6 @@ void CalculateIndirectCoordinates()
     }
 }
 
-const float PI = 3.14159265359;
-
-vec3 saturate(vec3 v)
-{
-    return clamp(v, 0.0, 1.0);
-}
-
-float saturate(float v)
-{
-    return clamp(v, 0.0, 1.0);
-}
-
 // Shader code adapted from learnopengl.com's PBR tutorial:
 // https://learnopengl.com/PBR/Theory
 
@@ -569,7 +622,7 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
-    float a      = roughness*roughness;
+    float a      = roughness;
     float a2     = a*a;
     float NdotH  = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
@@ -581,39 +634,17 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     return num / denom;
 }
 
-float GeometrySchlickGGX(float NdotV, float roughness)
+vec3 calcSpecularGGX(float roughness, vec3 f0, vec3 N, vec3 V, vec3 L, vec3 H)
 {
-    float r = (roughness + 1.0);
-    float k = (r*r) / 8.0;
+	float N_H = saturate(dot(N, H));
+	float L_H = saturate(dot(L, H));
+	float N_V = saturate(dot(N, V));
+	float N_L = saturate(dot(N, L));
 
-    float num   = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
+    float D = DistributionGGX(N, H, roughness);
+    vec3 kS = FresnelSchlick(max(dot(N, H), 0.0), f0);
 
-    return num / denom;
-}
-
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
-
-    return ggx1 * ggx2;
-}
-
-vec3 BRDF_DFG_Polynomial(vec3 L, vec3 V, vec3 N, vec3 F0, float roughness) {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    if (NdotV > 0.0 && NdotL > 0.0) {
-        vec3 H = normalize(L + V);
-        float D = DistributionGGX(N, H, roughness);
-        float G = GeometrySchlickGGX(NdotV, roughness) * GeometrySchlickGGX(NdotL, roughness);
-        vec3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
-
-        return (D * G) / (4.0 * NdotL * NdotV) * F;
-    }
-    return vec3(0.0);
+	return f0 * kS * (N_L * D);
 }
 
 vec3 ReconstructNormal(in vec2 t_NormalXY) {
@@ -670,8 +701,8 @@ vec3 CalculateEmission(vec4 sphere_light_map)
         if (emission_scale_type == 7)
         {   
             //exposure scale    
-            float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).w;
-            emission *= 1.0 / exposure * mdlEnvView.cProjInvNoPos[2].x;
+            float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).a;
+            emission *= 1.0 / exposure * mdlEnvView.Exposure.x;
         }
     }
     return emission;
@@ -681,18 +712,22 @@ void SetupBlend()
 {
     //Calc blending. Compute any references first
     CHECK_CALC_BLEND_REFS(0);
-    CHECK_CALC_BLEND_REFS(1);
-    CHECK_CALC_BLEND_REFS(2);
-    CHECK_CALC_BLEND_REFS(3);
-    CHECK_CALC_BLEND_REFS(4);
-    CHECK_CALC_BLEND_REFS(5);
-
     BLEND0_OUTPUT = CALCULATE_BLEND(0);
+    CHECK_CALC_BLEND_REFS(1);
     BLEND1_OUTPUT = CALCULATE_BLEND(1);
+    CHECK_CALC_BLEND_REFS(2);
     BLEND2_OUTPUT = CALCULATE_BLEND(2);
+    CHECK_CALC_BLEND_REFS(3);
     BLEND3_OUTPUT = CALCULATE_BLEND(3);
+    CHECK_CALC_BLEND_REFS(4);
     BLEND4_OUTPUT = CALCULATE_BLEND(4);
+    CHECK_CALC_BLEND_REFS(5);
     BLEND5_OUTPUT = CALCULATE_BLEND(5);
+}
+
+float CalculateDirectionalLight(vec3 N)
+{
+    return saturate(dot(N, mdlEnvView.Dir.xyz)) * (1.0 / PI);
 }
 
 void main()
@@ -709,6 +744,8 @@ void main()
     vec4 transparent_tex     = CalculateOutput(o_transparent_tex);
     float alpha      = GetComp(CalculateOutput(o_alpha), alpha_component).w;
 
+    vec3 specularTerm = vec3(0.0);
+
     //Roughness adjust
     roughness *= mat.force_roughness;
     roughness = saturate(roughness);
@@ -716,33 +753,41 @@ void main()
     //Normals
     vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
 
-    //Sphere mapping
+    //Sphere light mapping
     vec4 sphere_map = textureLod(cTextureMaterialLightSphere, CalcSphereCoords(N.xyz), sqrt(roughness)).rgba;
 
-    //PBR
-    vec3 I = vec3(0,0,-1) * mat3(mdlEnvView.cView);
-    vec3 V = normalize(I); // view
-    vec3 L = normalize(mdlEnvView.Dir.xyz ); // Light
-    vec3 H = normalize(V + L); // half angle
-    vec3 R = reflect(I, N); // reflection
-    float NL = saturate(dot(N, L));
+    //Lighting
+    Light light = SetupLight(N);
 
+    //Fresnel
     vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
-    vec3 kS = FresnelSchlickRoughness(max(dot(N, H), 0.0), f0, roughness);
-    vec3 brdf = BRDF_DFG_Polynomial(L, V, N, f0, roughness);
+    vec3 kS = FresnelSchlickRoughness(max(dot(light.N, light.L), 0.0), f0, roughness);
 
-    const float MAX_LOD = 5.0;
+    //lower the intensity as current calculations are too strong
+    vec3 brdf = kS * 0.3;
 
-    vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, N, roughness * MAX_LOD);
-    irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
+    //irradiance lighting
+    if (is_apply_irradiance_pixel)
+    {
+        const float MAX_LOD = 5.0;
+        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, N, roughness * MAX_LOD);
+        irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
-    vec3 specularTerm = irradiance_cubemap.rgb * 0.3 * kS;
+        specularTerm = irradiance_cubemap.rgb * brdf;
+    }
+
+    //specular ggx
+    if (is_forward_ggx)
+    {
+        vec3 spec_intensity = calcSpecularGGX(roughness, f0, light.N, light.V, light.L, light.H);
+        specularTerm += spec_intensity;
+    }
 
     //Diffuse
     vec3 diffuseTerm = base_color.rgb;
 
     //Adjust for metalness.
-    diffuseTerm *= clamp(1.0 - metalness, 0.0, 1.0);
+    diffuseTerm *= saturate(1.0 - metalness);
     diffuseTerm *= vec3(1) - brdf;
 
     //Ambient occ
@@ -786,9 +831,10 @@ void main()
                 discard;
         }
     }
+    float light_intensity = CalculateDirectionalLight(N) * 1.5;
 
     //Light output
-    oLightBuf.rgb = diffuseTerm.rgb * fLightColor.xyz + specularTerm;
+    oLightBuf.rgb = specularTerm + diffuseTerm.rgb * fLightColor.xyz * light_intensity;
 
     //Emission
     if (enable_emission)

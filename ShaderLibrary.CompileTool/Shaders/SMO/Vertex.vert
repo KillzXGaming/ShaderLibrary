@@ -142,6 +142,7 @@ layout (location = 3) out vec4 fTexCoords23;
 layout (location = 4) out vec4 fLightColor;
 layout (location = 5) out vec4 fViewDirection;
 layout (location = 6) out vec4 fVertexColor;
+layout (location = 7) out vec4 fViewPos;
 
 vec4 skin(vec3 pos, ivec4 index)
 {
@@ -254,10 +255,14 @@ void main()
 
     fVertexColor = vColor;
 
+    vec3 view_pos = position.xyz * mat3(mdlEnvView.cView);
+
     //world pos - camera pos for eye position
     fViewDirection.xyz = normalize(vec3(
        mdlEnvView.cView[0].w,
        mdlEnvView.cView[1].w, 
-       mdlEnvView.cView[2].w) - position.xyz);
+       mdlEnvView.cView[2].w) - view_pos);
+
+    fViewPos.xyz = view_pos;
     return;
 }
