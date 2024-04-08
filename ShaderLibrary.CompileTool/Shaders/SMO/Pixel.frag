@@ -379,28 +379,24 @@ vec2 SelectTexCoord(int mtx_select)
 float CalulateSphereLight()
 {
     vec3 normal = fNormalsDepth.xyz;
-    vec3 dir = fViewDirection.xyz * mat3(mdlEnvView.cView);
+    vec3 dir = -fViewDirection.xyz * mat3(mdlEnvView.cView);
 
-    float sphere_p = clamp(
-        fma(normal.z, -dir.z * mdlEnvView.cView[2].z + dir.x * mdlEnvView.cView[2].x + dir.y * mdlEnvView.cView[2].y, 
-        fma(normal.x, -dir.z * mdlEnvView.cView[0].z + dir.x * mdlEnvView.cView[0].x + dir.y * mdlEnvView.cView[0].y, 
-            normal.y *-dir.z * mdlEnvView.cView[1].z + dir.x * mdlEnvView.cView[1].x + dir.y * mdlEnvView.cView[1].y)), 
-            0.0, 1.0);
-    return sphere_p;
+    return saturate(dot(normal, dir));
 }
 
 vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
 {
     float cosTheta  = CalulateSphereLight();
+    float sphere_rate = 1.0; //TODO sphere_rate_color is 0.0???
 
     if (sphere_color_type == 1)
     {
-        float amount = clamp(exp2(log2(cosTheta ) * sphere_rate_color), 0.0, 1.0);
+        float amount = clamp(cosTheta * sphere_rate, 0.0, 1.0);
         return const_color * amount;
     }
     else if (sphere_color_type == 2)
     {
-        float amount = clamp(exp2(log2(0.0 - cosTheta  + 1.0) * sphere_rate_color), 0.0, 1.0);
+        float amount = clamp((1.0 - cosTheta) * sphere_rate, 0.0, 1.0);
         return const_color * amount;
     }
     else
