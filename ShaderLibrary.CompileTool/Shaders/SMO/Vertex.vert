@@ -1,7 +1,7 @@
 #version 450 core
 
 //must match the mesh using this material
-#define SKIN_COUNT 4
+#define SKIN_COUNT 0
 
 //The uv transform method to use. 
 //0 = none 1 = tex_mtx0, 2 = tex_mtx1, 3 = tex_mtx2, 4 = tex_mtx3
@@ -210,9 +210,9 @@ vec2 get_tex_coord(int selector, int mtx_type, bool enable)
 
     switch (selector)
     {
-        case FUV_SELECT_UV0: get_tex_mtx(vTexCoords0.xy, mtx_type);
-        case FUV_SELECT_UV1: get_tex_mtx(vTexCoords1.xy, mtx_type);
-        case FUV_SELECT_UV2: get_tex_mtx(vTexCoords2.xy, mtx_type);
+        case FUV_SELECT_UV0: return get_tex_mtx(vTexCoords0.xy, mtx_type);
+        case FUV_SELECT_UV1: return get_tex_mtx(vTexCoords1.xy, mtx_type);
+        case FUV_SELECT_UV2: return get_tex_mtx(vTexCoords2.xy, mtx_type);
         case FUV_SELECT_SPHERE:
         {
 		    //view normal
@@ -221,7 +221,7 @@ vec2 get_tex_coord(int selector, int mtx_type, bool enable)
 		    return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
          }
         default: //unknown type
-        return get_tex_mtx(vTexCoords0.xy, mtx_type);
+            return vTexCoords0.xy;
     }
 }
  

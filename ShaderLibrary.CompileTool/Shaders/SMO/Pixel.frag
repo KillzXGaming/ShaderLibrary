@@ -414,7 +414,7 @@ vec4 CalculateBaseColor()
 
 vec4 CalculateOutput(int flag)
 {
-    if (flag == 10) CalculateBaseColor();
+    if (flag == 10)      return CalculateBaseColor();
     else if (flag == 15) return fVertexColor;
     else if (flag == 20) return texture(cTextureNormal, SelectTexCoord(normal_uv_selector));
     else if (flag == 30) return vec4(fNormalsDepth.rgb, 0.0); //used in normals when no normal map present
@@ -523,7 +523,7 @@ void TryCalculateReferencedBlend(int flag)
 
 void CalculateIndirectCoordinates()
 {
-    ///TODO this is incorrect. Figure out how to apply indirect#_tgt_uv
+    ///TODO this is slightly incorrect. Figure out how to apply indirect#_tgt_uv
     if (enable_indirect0)
     {   
         vec2 tex_coords = SelectTexCoord(indirect0_tgt_uv);
