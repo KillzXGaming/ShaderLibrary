@@ -161,7 +161,7 @@ vec4 skin(vec3 pos, ivec4 index)
 
 vec3 skinNormal(vec3 nr, ivec4 index)
 {
-    vec3 newNormal = vec3(0);
+    vec3 newNormal = nr;
 
     if (SKIN_COUNT >= 1)
         newNormal =  nr * mat3(cBoneMatrices[index.x]) * vBoneWeight.x;
@@ -206,7 +206,7 @@ vec2 get_tex_mtx(vec2 tex_coord, int type)
 vec2 get_tex_coord(int selector, int mtx_type, bool enable)
 {
     if (!enable)
-        return vec2(0.0);
+        return vTexCoords0.xy;
 
     switch (selector)
     {
