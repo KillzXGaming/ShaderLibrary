@@ -271,10 +271,10 @@ const int FUV_MTX3 = 13;
 #define enable_blend4        false
 #define enable_blend5        false
 
-#define SPHERE_CONST_COLOR0 2
-#define SPHERE_CONST_COLOR1 0
-#define SPHERE_CONST_COLOR2 0
-#define SPHERE_CONST_COLOR3 0
+#define sphere_const_color0 2
+#define sphere_const_color1 0
+#define sphere_const_color2 0
+#define sphere_const_color3 0
 
 //Variables for setting blend for outputs later
 vec4 BLEND0_OUTPUT;
@@ -379,26 +379,7 @@ vec2 SelectTexCoord(int mtx_select)
 float CalulateSphereLight()
 {
     vec3 normal = fNormalsDepth.xyz;
-    vec3 dir = -fViewDirection.xyz * mat3(mdlEnvView.cView);
-    dir = normalize(-fViewPos.xyz);
-
-    float N_I = saturate(dot(normal, dir.xyz));
-
-    vec3 viewNormal = normalize(mat3(transpose(inverse(mat3(mdlEnvView.cView)))) * normal);
-
-    float cosTheta = max(dot(dir.xyz, viewNormal), 0.0);
-
-    float R0 = 0.04; // Adjust this to control the strength of the Fresnel effect
-    float fresnel = R0 + (1.0 - R0) * pow(1.0 - cosTheta, 5.0);
-
-    return fresnel;
-
-    return pow(saturate(1.0 + dot(normal, dir.xyz)), 4);
-
-  //  return saturate(dot(normal, dir));
-    return N_I;
-
-    return pow(saturate(1.0 + dot(normal, -fViewPos.xyz)), 4);
+    vec3 dir = fViewDirection.xyz * mat3(mdlEnvView.cView);
 
     float sphere_p = clamp(
         fma(normal.z, -dir.z * mdlEnvView.cView[2].z + dir.x * mdlEnvView.cView[2].x + dir.y * mdlEnvView.cView[2].y, 
@@ -410,19 +391,16 @@ float CalulateSphereLight()
 
 vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
 {
-    return const_color * CalulateSphereLight();
-
-    float amount = clamp(exp2(log2(0.0 - CalulateSphereLight() + 1.0) * sphere_rate_color), 0.0, 1.0);
-    return const_color * amount;
+    float cosTheta  = CalulateSphereLight();
 
     if (sphere_color_type == 1)
     {
-        float amount = clamp(exp2(log2(CalulateSphereLight()) * sphere_rate_color), 0.0, 1.0);
+        float amount = clamp(exp2(log2(cosTheta ) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
     else if (sphere_color_type == 2)
     {
-        float amount = clamp(exp2(log2(0.0 - CalulateSphereLight() + 1.0) * sphere_rate_color), 0.0, 1.0);
+        float amount = clamp(exp2(log2(0.0 - cosTheta  + 1.0) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
     else
@@ -473,7 +451,7 @@ vec4 CalculateBaseColor()
         enable_uniform##num##_roughness_lod) \
 
 #define CALCULATE_CONST_COLOR(num) \
-    CalculateSphereConstColor(SPHERE_CONST_COLOR##num, \
+    CalculateSphereConstColor(sphere_const_color##num, \
                             mat.const_color##num, \
                             mat.sphere_rate_color##num) \
 
