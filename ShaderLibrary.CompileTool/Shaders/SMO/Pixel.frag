@@ -106,12 +106,12 @@ layout (binding = 2) uniform sampler2D cTextureUniform0; //4
 layout (binding = 3) uniform sampler2D cTextureUniform1;
 layout (binding = 4) uniform sampler2D cTextureUniform2;
 layout (binding = 5) uniform sampler2D cTextureUniform3;
-layout (binding = 6) uniform sampler2D cTextureUniform4;
 
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 22) uniform sampler2D cTextureMaterialLightSphere;
 layout (binding = 23) uniform sampler2D cExposureTexture;
 
+layout (binding = 27) uniform sampler2D cTextureUniform4;
 
 
 layout (location = 0) in vec4 fNormalsDepth;
@@ -136,7 +136,7 @@ layout (location = 3) out vec4 oBaseColor;
 #define enable_ao false
 #define enable_emission false
 #define enable_sss true
-#define enable_alpha_mask false
+#define enable_alphamask false
 
 #define enable_indirect0 false
 #define enable_indirect1 false
@@ -481,8 +481,8 @@ vec4 CalculateOutput(int flag)
     else if (flag == 50) return CALCULATE_UNIFORM(0);
     else if (flag == 51) return CALCULATE_UNIFORM(1);
     else if (flag == 52) return CALCULATE_UNIFORM(2);
-    else if (flag == 53) return CALCULATE_UNIFORM(2);
-    else if (flag == 54) return CALCULATE_UNIFORM(3);
+    else if (flag == 53) return CALCULATE_UNIFORM(3);
+    else if (flag == 54) return CALCULATE_UNIFORM(4);
     else if (flag == 60) return CALCULATE_CONST_COLOR(0); //sphere rate 0
     else if (flag == 61) return CALCULATE_CONST_COLOR(1); //sphere rate 1
     else if (flag == 62) return CALCULATE_CONST_COLOR(2); //sphere rate 2
@@ -797,7 +797,7 @@ void main()
     if (enable_ao)
         diffuseTerm.rgb *= ao.rgb;
 
-    if (enable_alpha_mask)
+    if (enable_alphamask)
     {
         if (alpha_test_func == 0)
         {
