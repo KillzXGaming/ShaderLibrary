@@ -3,37 +3,26 @@
 //must match the mesh using this material
 #define SKIN_COUNT 0
 
+#define is_apply_irradiance_pixel true
+
 //The uv transform method to use. 
 //0 = none 1 = tex_mtx0, 2 = tex_mtx1, 3 = tex_mtx2, 4 = tex_mtx3
-#define FUV0_MTX 0
-#define FUV1_MTX 0
-#define FUV2_MTX 0
-#define FUV3_MTX 0
+#define fuv0_mtx 0
+#define fuv1_mtx 0
+#define fuv2_mtx 0
+#define fuv3_mtx 0
 
-//The UV layer or method to use
-#define FUV_SELECT_UV0 10
-#define FUV_SELECT_UV1 11
-#define FUV_SELECT_UV2 12
-#define FUV_SELECT_UV3 13
-#define FUV_SELECT_IND0 20
-#define FUV_SELECT_IND1 21
-#define FUV_SELECT_SPHERE 30
-#define FUV_SELECT_PROJ 50
-#define FUV_SELECT_PROJ_MTX0 51 //proj_mtx# from model additional info block
-#define FUV_SELECT_PROJ_MTX1 52
-#define FUV_SELECT_PROJ_MTX2 53
+#define fuv0_selector 0
+#define fuv1_selector 0
+#define fuv2_selector 0
+#define fuv3_selector 0
 
-#define FUV0_SELECTOR FUV_SELECT_UV0
-#define FUV1_SELECTOR FUV_SELECT_UV0
-#define FUV2_SELECTOR FUV_SELECT_UV0
-#define FUV3_SELECTOR FUV_SELECT_UV0
+#define enable_fuv0 true
+#define enable_fuv1 false
+#define enable_fuv2 false
+#define enable_fuv3 false
 
-#define ENABLE_FUV0 true
-#define ENABLE_FUV1 false
-#define ENABLE_FUV2 false
-#define ENABLE_FUV3 false
-
-
+layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 15) uniform sampler2D cDirectionalLightColor;
 
 const int MAX_BONE_COUNT = 100;
@@ -42,6 +31,12 @@ layout (binding = 4, std140) uniform MdlMtx
 {
     mat3x4 cBoneMatrices[MAX_BONE_COUNT];
 };
+
+layout (binding = 8, std140) uniform HDRTranslate 
+{
+    float Power;
+    float Range;
+}hdr;
 
 layout (binding = 2, std140) uniform MdlEnvView
 {
@@ -67,10 +62,12 @@ layout (binding = 3, std140) uniform Material
     vec4 const_color1;
     vec4 const_color2;
     vec4 const_color3;
+
     float const_single0;
     float const_single1;
     float const_single2;
     float const_single3;
+
     vec4 base_color_mul_color;
     vec4 uniform0_mul_color;
     vec4 uniform1_mul_color;
@@ -79,24 +76,32 @@ layout (binding = 3, std140) uniform Material
     vec4 uniform4_mul_color;
     vec4 proc_texture_2d_mul_color;
     vec4 proc_texture_3d_mul_color;
+
     mat2x4 tex_mtx0;
     mat2x4 tex_mtx1;
     mat2x4 tex_mtx2;
     mat2x4 tex_mtx3;
+
     float displacement_scale;
     vec3 displacement1_scale;
+
     vec4 displacement_color;
     vec4 displacement1_color;
+
     float wrap_coef;
     float refract_thickness;
+
     vec2 indirect0_scale;
     vec2 indirect1_scale;
+
     float alpha_test_value;
     float force_roughness;
+
     float sphere_rate_color0;
     float sphere_rate_color1;
     float sphere_rate_color2;
     float sphere_rate_color3;
+
     mat4 mirror_view_proj;
     float decal_range;
     float gbuf_fetch_offset;
@@ -130,6 +135,7 @@ layout (location = 3) in vec4 vTangent;
 layout (location = 4) in vec4 vTexCoords0;
 layout (location = 5) in vec4 vTexCoords1;
 layout (location = 6) in vec4 vTexCoords2;
+layout (location = 7) in vec4 vTexCoords3;
 layout (location = 8) in vec4 vBitangent;
 layout (location = 10) in vec4 vBoneWeight;
 layout (location = 11) in ivec4 vBoneIndices;
@@ -143,11 +149,13 @@ layout (location = 4) out vec4 fLightColor;
 layout (location = 5) out vec4 fViewDirection;
 layout (location = 6) out vec4 fVertexColor;
 layout (location = 7) out vec4 fViewPos;
+layout (location = 8) out vec4 fIrradianceVertex;
+layout (location = 9) out vec2 fSphereCoords;
 
 vec4 skin(vec3 pos, ivec4 index)
 {
     vec4 newPosition = vec4(pos.xyz, 1.0);
-    
+
     if (SKIN_COUNT >= 1)
         newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * vBoneWeight.x;
     if (SKIN_COUNT >= 2)
@@ -211,19 +219,21 @@ vec2 get_tex_coord(int selector, int mtx_type, bool enable)
 
     switch (selector)
     {
-        case FUV_SELECT_UV0: return get_tex_mtx(vTexCoords0.xy, mtx_type);
-        case FUV_SELECT_UV1: return get_tex_mtx(vTexCoords1.xy, mtx_type);
-        case FUV_SELECT_UV2: return get_tex_mtx(vTexCoords2.xy, mtx_type);
-        case FUV_SELECT_SPHERE:
-        {
-		    //view normal
-		    vec3 view_n = (normalize(vNormal.xyz) * mat3(mdlEnvView.cView)).xyz;
-		    //center the uvs
-		    return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
-         }
+        case 0: return get_tex_mtx(vTexCoords0.xy, mtx_type);
+        case 1: return get_tex_mtx(vTexCoords1.xy, mtx_type);
+        case 2: return get_tex_mtx(vTexCoords2.xy, mtx_type);
+        case 3: return get_tex_mtx(vTexCoords3.xy, mtx_type);
         default: //unknown type
             return vTexCoords0.xy;
     }
+}
+
+vec4 DecodeCubemap(samplerCube cube, vec3 n, float lod)
+{
+    vec4 tex = textureLod(cube, n, lod);
+
+    float scale = pow(tex.a, hdr.Power) * hdr.Range;
+    return vec4(tex.rgb * scale, scale);
 }
  
 void main()
@@ -245,10 +255,10 @@ void main()
     fTangents.w = vTangent.w;
 
     //material tex coords
-    fTexCoords01.xy  = get_tex_coord(FUV0_SELECTOR, FUV0_MTX, ENABLE_FUV0); 
-    fTexCoords01.zw  = get_tex_coord(FUV1_SELECTOR, FUV1_MTX, ENABLE_FUV1); 
-    fTexCoords23.xy  = get_tex_coord(FUV2_SELECTOR, FUV2_MTX, ENABLE_FUV2); 
-    fTexCoords23.zw  = get_tex_coord(FUV3_SELECTOR, FUV3_MTX, ENABLE_FUV3); 
+    fTexCoords01.xy  = get_tex_coord(fuv0_selector, fuv0_mtx, enable_fuv0); 
+    fTexCoords01.zw  = get_tex_coord(fuv1_selector, fuv1_mtx, enable_fuv1); 
+    fTexCoords23.xy  = get_tex_coord(fuv2_selector, fuv2_mtx, enable_fuv2); 
+    fTexCoords23.zw  = get_tex_coord(fuv3_selector, fuv3_mtx, enable_fuv3); 
 
     vec3 light_color = textureLod(cDirectionalLightColor, vec2(mdlEnvView.Dir.w, 0.5), 0.0).xyz;
     fLightColor.xyz = light_color;
@@ -258,11 +268,28 @@ void main()
     vec3 view_pos = position.xyz * mat3(mdlEnvView.cView);
 
     //world pos - camera pos for eye position
-    fViewDirection.xyz = normalize(vec3(
+    fViewDirection.xyz = normalize(position.xyz - vec3(
        mdlEnvView.cView[0].w,
        mdlEnvView.cView[1].w, 
-       mdlEnvView.cView[2].w) - view_pos);
+       mdlEnvView.cView[2].w));
 
     fViewPos.xyz = view_pos;
+
+    if (!is_apply_irradiance_pixel)
+    {
+        float roughness = 0;
+
+        const float MAX_LOD = 5.0;
+        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, fNormalsDepth.xyz, roughness * MAX_LOD);
+        irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
+
+        fIrradianceVertex = irradiance_cubemap;
+    }
+
+    //Sphere mapping 
+	vec3 view_n = (normalize(fNormalsDepth.xyz) * mat3(mdlEnvView.cView)).xyz;
+	//center the uvs
+	fSphereCoords = view_n.xy * vec2(0.5) + vec2(0.5,0.5);
+
     return;
 }

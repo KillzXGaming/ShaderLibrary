@@ -35,10 +35,12 @@ layout (binding = 3, std140) uniform Material
     vec4 const_color1;
     vec4 const_color2;
     vec4 const_color3;
+
     float const_single0;
     float const_single1;
     float const_single2;
     float const_single3;
+
     vec4 base_color_mul_color;
     vec4 uniform0_mul_color;
     vec4 uniform1_mul_color;
@@ -47,24 +49,31 @@ layout (binding = 3, std140) uniform Material
     vec4 uniform4_mul_color;
     vec4 proc_texture_2d_mul_color;
     vec4 proc_texture_3d_mul_color;
+
     mat2x4 tex_mtx0;
     mat2x4 tex_mtx1;
     mat2x4 tex_mtx2;
     mat2x4 tex_mtx3;
+
     float displacement_scale;
     vec3 displacement1_scale;
+
     vec4 displacement_color;
-    vec4 displacement1_color;
+
     float wrap_coef;
     float refract_thickness;
+
     vec2 indirect0_scale;
     vec2 indirect1_scale;
+
     float alpha_test_value;
     float force_roughness;
+
     float sphere_rate_color0;
     float sphere_rate_color1;
     float sphere_rate_color2;
     float sphere_rate_color3;
+
     mat4 mirror_view_proj;
     float decal_range;
     float gbuf_fetch_offset;
@@ -113,17 +122,13 @@ layout (location = 4) in vec4 fLightColor;
 layout (location = 5) in vec4 fViewDirection;
 layout (location = 6) in vec4 fVertexColor;
 layout (location = 7) in vec4 fViewPos;
+layout (location = 8) in vec4 fIrradianceVertex;
+layout (location = 9) in vec2 fSphereCoords;
 
 layout (location = 0) out vec4 oLightBuf;
 layout (location = 1) out vec4 oWorldNrm;
 layout (location = 2) out vec4 oNormalizedLinearDepth;
 layout (location = 3) out vec4 oBaseColor;
-
-//Selectors for what UV mtx config to use for each sampler
-const int FUV_MTX0 = 10;
-const int FUV_MTX1 = 11;
-const int FUV_MTX2 = 12;
-const int FUV_MTX3 = 13;
 
 #define enable_base_color true
 #define enable_base_color_mul_color false
@@ -168,13 +173,26 @@ const int FUV_MTX3 = 13;
 #define emission_component 10 //rgba
 #define alpha_component 60 //alpha
 
-#define base_color_uv_selector   FUV_MTX0
-#define normal_uv_selector       FUV_MTX0
-#define uniform0_uv_selector     FUV_MTX0
-#define uniform1_uv_selector     FUV_MTX0
-#define uniform2_uv_selector     FUV_MTX0
-#define uniform3_uv_selector     FUV_MTX0
-#define uniform4_uv_selector     FUV_MTX0
+//The UV layer or method to use
+#define FUV_SELECT_UV0 10
+#define FUV_SELECT_UV1 11
+#define FUV_SELECT_UV2 12
+#define FUV_SELECT_UV3 13
+#define FUV_SELECT_IND0 20
+#define FUV_SELECT_IND1 21
+#define FUV_SELECT_SPHERE 30
+#define FUV_SELECT_PROJ 50
+#define FUV_SELECT_PROJ_MTX0 51 //proj_mtx# from model additional info block
+#define FUV_SELECT_PROJ_MTX1 52
+#define FUV_SELECT_PROJ_MTX2 53
+
+#define base_color_fuv_selector   FUV_SELECT_UV0
+#define normal_fuv_selector       FUV_SELECT_UV0
+#define uniform0_fuv_selector     FUV_SELECT_UV0
+#define uniform1_fuv_selector     FUV_SELECT_UV0
+#define uniform2_fuv_selector     FUV_SELECT_UV0
+#define uniform3_fuv_selector     FUV_SELECT_UV0
+#define uniform4_fuv_selector     FUV_SELECT_UV0
 
 #define enable_uniform0     true
 #define enable_uniform1     true
@@ -313,12 +331,14 @@ Light SetupLight(vec3 N)
 {
     Light light;
 
+    vec3 dir = normalize(fViewPos.xyz);
+
     light.N = N;
     light.I = vec3(0,0,1) * mat3(mdlEnvView.cView);
     light.V = normalize(light.I); // view
     light.L = normalize(mdlEnvView.Dir.xyz ); // Light
     light.H = normalize(light.V + light.L); // half angle
-    light.R = reflect(light.I, light.N); // reflection
+    light.R = reflect(dir.xyz, normalize(light.N)); // reflection
     light.NV = saturate(dot(light.N, light.V));
 
     return light;
@@ -360,18 +380,20 @@ vec4 GetComp(vec4 v, int comp_mask)
 
 vec2 SelectTexCoord(int mtx_select)
 {
-    if (mtx_select == 10)
+    if (mtx_select == 10)  //tex coord 0
         return fTexCoords01.xy;
-    else if  (mtx_select == 11)
+    else if  (mtx_select == 11) //tex coord 1
         return fTexCoords01.zy;
-    else if  (mtx_select == 12)
+    else if  (mtx_select == 12) //tex coord 2
         return fTexCoords23.xy;
-    else if  (mtx_select == 13)
+    else if  (mtx_select == 13) //tex coord 3
         return fTexCoords23.zw;
-    else if  (mtx_select == 20)
+    else if  (mtx_select == 20) //indirect coord 0
         return fIndirectCoords.xy;
-    else if  (mtx_select == 21)
+    else if  (mtx_select == 21) //indirect coord 1
         return fIndirectCoords.zw;
+    else if  (mtx_select == 30) //sphere mapping
+        return fSphereCoords.xy;
     else
         return fTexCoords01.xy;
 }
@@ -379,24 +401,23 @@ vec2 SelectTexCoord(int mtx_select)
 float CalulateSphereLight()
 {
     vec3 normal = fNormalsDepth.xyz;
-    vec3 dir = -fViewDirection.xyz * mat3(mdlEnvView.cView);
+    vec3 dir = fViewDirection.xyz * vec3(1,-1,1) * mat3(mdlEnvView.cViewInv);
 
-    return saturate(dot(normal, dir));
+    return saturate(dot(dir.xyz, normal));
 }
 
 vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
 {
     float cosTheta  = CalulateSphereLight();
-    float sphere_rate = 1.0; //TODO sphere_rate_color is 0.0???
 
     if (sphere_color_type == 1)
     {
-        float amount = clamp(cosTheta * sphere_rate, 0.0, 1.0);
+        float amount = clamp(exp2(log2(cosTheta) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
     else if (sphere_color_type == 2)
     {
-        float amount = clamp((1.0 - cosTheta) * sphere_rate, 0.0, 1.0);
+        float amount = clamp(exp2(log2(1.0 - cosTheta) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
     else
@@ -423,7 +444,7 @@ vec4 CalculateBaseColor()
 {
     vec4 basecolor_output = vec4(1.0);
     if (enable_base_color) //Todo third argument uses MdlEnvView.data[0x12A].x, a global LOD value
-         basecolor_output = texture(cTextureBaseColor, SelectTexCoord(base_color_uv_selector));
+         basecolor_output = texture(cTextureBaseColor, SelectTexCoord(base_color_fuv_selector));
     if (enable_base_color_mul_color)
         basecolor_output *= mat.base_color_mul_color;
     if (vtxcolor_type == 0)
@@ -439,7 +460,7 @@ vec4 CalculateBaseColor()
 
 #define CALCULATE_UNIFORM(num) \
     CalculateUniform(cTextureUniform##num, \
-        uniform##num##_uv_selector, \
+        uniform##num##_fuv_selector, \
         enable_uniform##num, \
         mat.uniform##num##_mul_color,  \
         enable_uniform##num##_mul_color, \
@@ -455,7 +476,7 @@ vec4 CalculateOutput(int flag)
 {
     if (flag == 10)      return CalculateBaseColor();
     else if (flag == 15) return fVertexColor;
-    else if (flag == 20) return texture(cTextureNormal, SelectTexCoord(normal_uv_selector));
+    else if (flag == 20) return texture(cTextureNormal, SelectTexCoord(normal_fuv_selector));
     else if (flag == 30) return vec4(fNormalsDepth.rgb, 0.0); //used in normals when no normal map present
     else if (flag == 50) return CALCULATE_UNIFORM(0);
     else if (flag == 51) return CALCULATE_UNIFORM(1);
@@ -596,7 +617,7 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
-    float a      = roughness;
+    float a      = roughness*roughness;
     float a2     = a*a;
     float NdotH  = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
@@ -744,7 +765,15 @@ void main()
     if (is_apply_irradiance_pixel)
     {
         const float MAX_LOD = 5.0;
-        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, N, roughness * MAX_LOD);
+        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
+        irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
+
+        specularTerm = irradiance_cubemap.rgb * brdf;
+    }
+    else
+    {
+        const float MAX_LOD = 5.0;
+        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
         irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
         specularTerm = irradiance_cubemap.rgb * brdf;
