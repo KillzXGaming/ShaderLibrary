@@ -552,7 +552,6 @@ void main()
 	vec4 transmission    = GetComp(CalculateOutput(o_transmission_color), o_transmission_channel);
 	float ao             = GetComp(CalculateOutput(o_ao_color), o_ao_channel).r;
 
-
 	vec4 emission                = CalculateOutput(o_emission_color);
 
 	float metalness = 1.0;
