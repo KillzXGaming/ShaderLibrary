@@ -74,11 +74,12 @@ namespace ShaderLibrary.CompileTool
                 macros.Add(op.Key, op.Value);
 
             string vertex_shader = File.ReadAllText("Shader/TOTK/Vertex.vert");
+            string vertex_forward_shader = File.ReadAllText("Shader/TOTK/VertexForward.vert");
             string frag_shader = File.ReadAllText("Shader/TOTK/Pixel.frag");
 
             UAMShaderCompiler.CompileByText(program_gbuffer.Item2.VertexShader, vertex_shader, "vert", macros);
             UAMShaderCompiler.CompileByText(program_depth.Item2.VertexShader, vertex_shader, "vert", macros);
-            UAMShaderCompiler.CompileByText(program_mat.Item2.VertexShader, vertex_shader, "vert", macros);
+            UAMShaderCompiler.CompileByText(program_mat.Item2.VertexShader, vertex_forward_shader, "vert", macros);
 
             UAMShaderCompiler.CompileByText(program_gbuffer.Item2.FragmentShader, frag_shader, "frag", macros);
 
