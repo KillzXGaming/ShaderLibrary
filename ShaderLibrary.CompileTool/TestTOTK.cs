@@ -11,9 +11,31 @@ namespace ShaderLibrary.CompileTool
 {
     public class TestTOTK
     {
-        public static void RunDeferredTest(string bfres_path, string mesh_name, string shader_path)
+        public static void RunDeferredTest()
         {
+            RunDeferredTest("SystemModel.DeferredMain.bfres","system.Product.100.product.Nin_NX_NVN.bfsha");
 
+        }
+
+        public static void RunDeferredTest(string bfres_path,  string shader_path)
+        {
+            var bfsha = new BfshaFile(shader_path);
+            ResFile resFile = new ResFile(bfres_path);
+
+            void CompieCustomFieldShader(string mesh_target)
+            {
+                var program = GetShaderProgram(bfsha, resFile, mesh_target, "gsys_assign_material").Item2;
+                UAMShaderCompiler.Compile(program.FragmentShader, "Shader/TOTK/PixelDeferred.frag", "frag");
+            }
+
+            CompieCustomFieldShader("field_hybrid");
+            CompieCustomFieldShader("field_hybrid_all_shadow");
+            CompieCustomFieldShader("field_entrance");
+            CompieCustomFieldShader("field_leaf");
+            CompieCustomFieldShader("field_miasma");
+            CompieCustomFieldShader("field_water");
+
+            bfsha.Save($"{shader_path}.NEW.bfsha");
         }
 
         public static void Run(string bfres_path, string mesh_name, string shader_path)
