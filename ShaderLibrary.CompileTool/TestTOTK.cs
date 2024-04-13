@@ -11,12 +11,15 @@ namespace ShaderLibrary.CompileTool
 {
     public class TestTOTK
     {
+        public static void RunDeferredTest(string bfres_path, string mesh_name, string shader_path)
+        {
+
+        }
+
         public static void Run(string bfres_path, string mesh_name, string shader_path)
         {
             var bfsha = new BfshaFile(shader_path);
             ResFile resFile = new ResFile(bfres_path);
-
-            UniformBlockPrinter.Print(bfsha.ShaderModels[0].UniformBlocks.Values.FirstOrDefault(x => x.Type == 1));
 
             //main shader
             var program_gbuffer = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_gbuffer");
