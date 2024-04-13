@@ -50,7 +50,7 @@ layout (binding = 3, std140) uniform GsysSkeleton
 
 layout (binding = 5, std140) uniform GsysShape
 {
-    mat3x4 transform;
+    mat3x4 cTransform;
 	vec4 cParams; //x = skin count
 	vec4 cUnknown1; //0
 	vec4 cUnknown2; //0
@@ -222,6 +222,8 @@ vec4 skin(vec3 pos)
 {
     vec4 newPosition = vec4(pos, 1.0);
 	
+	if (SKIN_COUNT == 0) newPosition =  vec4(pos, 1.0) * mat4(shape.cTransform);
+
 	if (SKIN_COUNT >= 1) newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices.x]) * vBoneWeight.x;
 	if (SKIN_COUNT >= 2) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices.y]) * vBoneWeight.y;
 	if (SKIN_COUNT >= 3) newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[vBoneIndices.z]) * vBoneWeight.z;
@@ -237,6 +239,8 @@ vec4 skin(vec3 pos)
 vec3 skinNormal(vec3 nr)
 {
     vec3 newNormal = nr;
+
+	if (SKIN_COUNT == 0) newNormal =  nr * mat3(shape.cTransform);
 
 	if (SKIN_COUNT >= 1) newNormal =  nr * mat3(cBoneMatrices[vBoneIndices.x]) * vBoneWeight.x;
 	if (SKIN_COUNT >= 2) newNormal += nr * mat3(cBoneMatrices[vBoneIndices.y]) * vBoneWeight.y;
