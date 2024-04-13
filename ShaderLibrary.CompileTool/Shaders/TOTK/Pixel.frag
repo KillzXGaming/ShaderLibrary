@@ -336,19 +336,49 @@ float ConvertByteToFloat(int v)
 
 struct GBufferEncode
 {
-	float SpecularPack;
-	float MetalPack;
-	float ShadingPack;
+	float NormalsBluePack;
+	float NormalsAlphaPack;
+	float AlbedoAlphaPack;
 };
 
-void EncodeGBuffer(float spec_mask, float metal, float ao, out GBufferEncode gbuffer)
+float EncodeAlbedoAlphaChannel(float metalness)
 {
-	gbuffer.SpecularPack	     = ((ConvertFloatToByte(spec_mask) & 248) | 4);
-	gbuffer.MetalPack			 = ((ConvertFloatToByte(metal) & 252) | 2);
-	gbuffer.ShadingPack		     = ((ConvertFloatToByte(ao) & 252) | 2);
+	return ((ConvertFloatToByte(metalness) & 248) | 4);
 }
 
-//TODO array types
+float EncodeNormalBlueChannel(vec2 normals, float ao)
+{
+	float temp_32 = normals.x < 0.0 ? 1.0 : 0.0;
+	float temp_33 = normals.x > 0.0 ? 1.0 : 0.0;
+	float temp_34 = normals.y > 0.0 ? 1.0 : 0.0;
+	float temp_35 = normals.y < 0.0 ? 1.0 : 0.0;
+
+	int c0 = temp_33 > temp_32 ? -1 : 0;
+	int c1 = temp_34 > temp_35 ? -1 : 0;
+
+	int packed_ao = ConvertFloatToByte(clamp(ao * 2.0 - 1.0, 0.0, 1.0)) & 224 | 8;
+
+	int packed_flag = packed_ao | 0 - c0 << 1 | 0 - c1;
+
+	return ConvertByteToFloat(packed_flag);
+}
+
+float EncodeNormalAlphaChannel(vec2 normals, float spec_mask, float metal)
+{
+	float x_clamped = clamp(1.0 - abs(normals.x), 0.0, 1.0);
+	float y_clamped = clamp(1.0 - abs(normals.y), 0.0, 1.0);
+	//Setup flags
+	float result = spec_mask * ((x_clamped * y_clamped) + metal) * 255.0;
+	return ((ConvertFloatToByte(result) & 252) | 2);
+}
+
+void EncodeGBuffer(vec2 normals, float spec_mask, float metal, float ao, out GBufferEncode gbuffer)
+{
+	gbuffer.AlbedoAlphaPack		= EncodeAlbedoAlphaChannel(metal);
+	gbuffer.NormalsBluePack		= EncodeNormalBlueChannel(normals, ao);
+	gbuffer.NormalsAlphaPack	= EncodeNormalAlphaChannel(normals, spec_mask, metal);
+}
+
 #define SAMPLE_TEX(num) \
 	 texture(cTexture##num, GetTexCoords(o_texture##num##_texcoord)) \
 
@@ -530,15 +560,15 @@ void main()
 	ComputeMaterialBehavior(base_color.rgb, metalness, oMaterialID.x); //material ID to display in the deferred pass
 	oMaterialID.y = mat.p_object_attribute; //always set as Y
 
-	float specular_encoded = 0.0;
-
-	GBufferEncode gfbuffer;
-	EncodeGBuffer(spec_mask, metalness, ao, gfbuffer);
-
 	vec2 normals = CalculateNormals(fNormals.xy).xy;
 
+	float specular_encoded = 0.0;
+
+	GBufferEncode gbuffer;
+	EncodeGBuffer(normals, spec_mask, metalness, ao, gbuffer);
+
 	oAlbedoColor.xyz = base_color.rgb; 
-	oAlbedoColor.a = 1.0; //sort of shading affect. Todo not working correctly, set to 1.0 for now
+	oAlbedoColor.a = gbuffer.AlbedoAlphaPack;
 
 	float alpha = transparency;
 
@@ -581,8 +611,8 @@ void main()
     }
 
 	oNormals.xy = normals.xy; 
-	oNormals.z = gfbuffer.ShadingPack;
-	oNormals.a = gfbuffer.SpecularPack;
+	oNormals.z = gbuffer.NormalsBluePack;
+	oNormals.a = gbuffer.NormalsAlphaPack;
 
 	if (o_enable_emission)
 		oEmission = emission;

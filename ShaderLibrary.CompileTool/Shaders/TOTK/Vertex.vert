@@ -187,7 +187,7 @@ layout (location = 12) in vec4 vColor0;
 layout (location = 13) in vec4 vColor1;
 
 //Confirmed for these to match up with the contents
-layout (location = 0) out vec4 fTexCoords0;
+layout (location = 0) out vec4 fTexCoords0; //tex coords 0 -> 1
 
 //tex coords 2 -> 5 go here TODO #if with expected locations
 
