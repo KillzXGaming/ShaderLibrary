@@ -357,14 +357,14 @@ void EncodeGBuffer(float spec_mask, float metal, float ao, out GBufferEncode gbu
 
 vec4 GetTexture(int flag)
 {
-	if (flag == 0)	      return SAMPLE_TEX(0);
-    else if (flag == 1)   return SAMPLE_TEX(1);
-    else if (flag == 2)   return SAMPLE_TEX(2);
-    else if (flag == 3)   return SAMPLE_TEX(3);
-    else if (flag == 4)   return SAMPLE_TEX(4);
-    else if (flag == 5)   return SAMPLE_TEX(5);
-    else if (flag == 6)   return SAMPLE_TEX(6);
-    else if (flag == 7)   return SAMPLE_TEX(7);
+	if (flag == 0)	      return (o_texture_array0 == 0) ? SAMPLE_TEX(0) : SAMPLE_TEX_ARRAY(0);
+    else if (flag == 1)   return (o_texture_array1 == 0) ? SAMPLE_TEX(1) : SAMPLE_TEX_ARRAY(1);
+    else if (flag == 2)   return (o_texture_array2 == 0) ? SAMPLE_TEX(2) : SAMPLE_TEX_ARRAY(2);
+    else if (flag == 3)   return (o_texture_array3 == 0) ? SAMPLE_TEX(3) : SAMPLE_TEX_ARRAY(3);
+    else if (flag == 4)   return (o_texture_array4 == 0) ? SAMPLE_TEX(4) : SAMPLE_TEX_ARRAY(4);
+    else if (flag == 5)   return (o_texture_array5 == 0) ? SAMPLE_TEX(5) : SAMPLE_TEX_ARRAY(5);
+    else if (flag == 6)   return (o_texture_array6 == 0) ? SAMPLE_TEX(6) : SAMPLE_TEX_ARRAY(6);
+    else if (flag == 7)   return (o_texture_array7 == 0) ? SAMPLE_TEX(7) : SAMPLE_TEX_ARRAY(7);
 	return vec4(0.0);
 }
 
