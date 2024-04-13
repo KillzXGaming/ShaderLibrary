@@ -26,6 +26,7 @@ namespace ShaderLibrary.CompileTool
             var program_mat     = GetShaderProgram(bfsha, resFile, mesh_name, "gsys_assign_material");
 
             var mesh = resFile.Models[0].Shapes[mesh_name];
+            var material = resFile.Models[0].Materials[mesh.MaterialIndex];
 
             //Custom skin count test
             mesh.VertexSkinCount = 4;
@@ -41,6 +42,9 @@ namespace ShaderLibrary.CompileTool
 
             Dictionary<string, string> macros = new Dictionary<string, string>();
             macros.Add("SKIN_COUNT", mesh.VertexSkinCount.ToString());
+
+            foreach (var op in material.ShaderAssign.ShaderOptions)
+                macros.Add(op.Key, op.Value);
 
             string vertex_shader = File.ReadAllText("Shader/TOTK/Vertex.vert");
             string frag_shader = File.ReadAllText("Shader/TOTK/Pixel.frag");
