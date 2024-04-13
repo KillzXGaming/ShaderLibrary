@@ -25,7 +25,9 @@ namespace ShaderLibrary.CompileTool
             void CompieCustomFieldShader(string mesh_target)
             {
                 var program = GetShaderProgram(bfsha, resFile, mesh_target, "gsys_assign_material").Item2;
-                UAMShaderCompiler.Compile(program.FragmentShader, "Shader/TOTK/PixelDeferred.frag", "frag");
+                var text = File.ReadAllText("Shader/PixelDeferred.frag");
+
+                UAMShaderCompiler.CompileByText(program.FragmentShader, text, "frag");
             }
 
             CompieCustomFieldShader("field_hybrid");
