@@ -1,7 +1,7 @@
 #version 450 core
 
 //must match the mesh using this material
-#define SKIN_COUNT 0
+#define SKIN_COUNT 4
 
 #define is_apply_irradiance_pixel true
 
@@ -22,6 +22,7 @@
 #define enable_fuv2 false
 #define enable_fuv3 false
 
+
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 15) uniform sampler2D cDirectionalLightColor;
 
@@ -37,6 +38,11 @@ layout (binding = 8, std140) uniform HDRTranslate
     float Power;
     float Range;
 }hdr;
+
+layout (binding = 5, std140) uniform _Shp
+{
+    mat3x4 cTransform;
+} shape;
 
 layout (binding = 2, std140) uniform MdlEnvView
 {
@@ -156,6 +162,9 @@ vec4 skin(vec3 pos, ivec4 index)
 {
     vec4 newPosition = vec4(pos.xyz, 1.0);
 
+    if (SKIN_COUNT == 0)
+        newPosition = vec4(pos, 1.0) * mat4(shape.cTransform);
+
     if (SKIN_COUNT >= 1)
         newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * vBoneWeight.x;
     if (SKIN_COUNT >= 2)
@@ -171,6 +180,9 @@ vec4 skin(vec3 pos, ivec4 index)
 vec3 skinNormal(vec3 nr, ivec4 index)
 {
     vec3 newNormal = nr;
+
+    if (SKIN_COUNT == 0)
+        newNormal =  nr * mat3(shape.cTransform);
 
     if (SKIN_COUNT >= 1)
         newNormal =  nr * mat3(cBoneMatrices[index.x]) * vBoneWeight.x;
@@ -242,7 +254,8 @@ void main()
     
     //position
     vec4 position = skin(vPosition.xyz, bone_index);
-    gl_Position = vec4(position.xyz, 1) * mdlEnvView.cViewProj;
+
+    gl_Position = vec4(position.xyz, 1.0) * mdlEnvView.cViewProj;
 
     //normals
     fNormalsDepth = vec4(skinNormal(vNormal.xyz, bone_index).xyz, 1.0);
@@ -277,10 +290,14 @@ void main()
 
     if (!is_apply_irradiance_pixel)
     {
+        vec3 normal = normalize(fNormalsDepth.xyz);
+        float maxAbsComponent = max(abs(normal.x), max(abs(normal.y), abs(normal.z)));
+        vec3 texCoordOffset = vec3(normal.x / maxAbsComponent, normal.y / maxAbsComponent, 0.0 - 1.0 / maxAbsComponent);
+
         float roughness = 0;
 
         const float MAX_LOD = 5.0;
-        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, fNormalsDepth.xyz, roughness * MAX_LOD);
+        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, texCoordOffset.xyz, MAX_LOD);
         irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
         fIrradianceVertex = irradiance_cubemap;

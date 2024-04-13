@@ -59,6 +59,7 @@ layout (binding = 3, std140) uniform Material
     vec3 displacement1_scale;
 
     vec4 displacement_color;
+    vec4 displacement1_color;
 
     float wrap_coef;
     float refract_thickness;
@@ -106,6 +107,7 @@ layout (binding = 2) uniform sampler2D cTextureUniform0; //4
 layout (binding = 3) uniform sampler2D cTextureUniform1;
 layout (binding = 4) uniform sampler2D cTextureUniform2;
 layout (binding = 5) uniform sampler2D cTextureUniform3;
+layout (binding = 6) uniform samplerCube cTexCubeMapRoughness;
 
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 22) uniform sampler2D cTextureMaterialLightSphere;
@@ -141,9 +143,11 @@ layout (location = 3) out vec4 oBaseColor;
 #define enable_indirect0 false
 #define enable_indirect1 false
 
+#define enable_material_light true
+
 #define is_apply_irradiance_pixel true
 
-#define is_forward_ggx true
+#define is_forward_ggx false
 
 #define indirect0_tgt_uv 10
 #define indirect1_tgt_uv 13
@@ -156,7 +160,7 @@ layout (location = 3) out vec4 oBaseColor;
 #define emission_type 1
 #define emission_scale_type 7
 
-#define vtxcolor_type 0
+#define vtxcolor_type -1
 
 #define o_base_color     10
 #define o_normal         20
@@ -346,7 +350,9 @@ Light SetupLight(vec3 N)
 
 vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
 {
-    return vec4(baseColor, roughness);
+    float encoded = float(uint(int(uint(max(trunc(roughness * 15.0), 0.0))) << 4 | 
+                               int(uint(max(trunc(metalness * 15.0), 0.0))))) * 0.00392156886;
+    return vec4(baseColor, encoded);
 }
 
 vec4 DecodeCubemap(samplerCube cube, vec3 n, float lod)
@@ -764,11 +770,22 @@ void main()
     //irradiance lighting
     if (is_apply_irradiance_pixel)
     {
-        const float MAX_LOD = 5.0;
-        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
-        irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
+        if (enable_material_light)
+        {
+            const float MAX_LOD = 5.0;
+            vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
+            irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
-        specularTerm = irradiance_cubemap.rgb * brdf;
+            specularTerm = irradiance_cubemap.rgb * brdf;
+        }
+        else
+        {
+            const float MAX_LOD = 5.0;
+            vec4 irradiance_cubemap = DecodeCubemap(cTexCubeMapRoughness, light.R, MAX_LOD);
+            irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
+
+            specularTerm = irradiance_cubemap.rgb * brdf;
+        }
     }
     else
     {
@@ -836,6 +853,9 @@ void main()
     }
     float light_intensity = CalculateDirectionalLight(N) * 1.5;
 
+    light_intensity = dot(N, mdlEnvView.Dir.xyz);
+    light_intensity = 1.0;
+
     //Light output
     oLightBuf.rgb = specularTerm + diffuseTerm.rgb * fLightColor.xyz * light_intensity;
 
@@ -851,7 +871,10 @@ void main()
     oWorldNrm.rg = N.rg * 0.5 + 0.5;
 
     oNormalizedLinearDepth.r = 0.0; //todo. This causes flickering due to depth not matching with depth shader
- //   oNormalizedLinearDepth.r = fNormalsDepth.w;
+    oNormalizedLinearDepth.r = fNormalsDepth.w * gl_FragCoord.w * (1.0 / gl_FragCoord.w);
+    oNormalizedLinearDepth.y = 0.0;
+    oNormalizedLinearDepth.z = 0.0;
+    oNormalizedLinearDepth.w = 0.0;
 
     oBaseColor = EncodeBaseColor(saturate(base_color.rgb), roughness, metalness, N);
     return;
