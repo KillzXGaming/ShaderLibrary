@@ -51,6 +51,8 @@ namespace ShaderLibrary.CompileTool
             var mem = new MemoryStream();
             control.Save(mem);
 
+            Console.WriteLine($"{binary.ByteCode.Length} {shader_updated.Length}");
+
             binary.ByteCode = shader_updated.ToArray();
             binary.ControlCode = mem.ToArray();
 
@@ -77,11 +79,20 @@ namespace ShaderLibrary.CompileTool
 
                 //raw byte code
                 writer.Write(byte_code);
-
-                writer.Seek(51, SeekOrigin.Begin);
-                writer.Write((byte)2);
             }
             return mem.ToArray();
+        }
+
+        static void AlignBytes(BinaryWriter wr, int align, byte pad_val = 0)
+        {
+            var startPos = wr.BaseStream.Position;
+            long position = wr.Seek((int)(-wr.BaseStream.Position % align + align) % align, SeekOrigin.Current);
+
+            wr.Seek((int)startPos, System.IO.SeekOrigin.Begin);
+            while (wr.BaseStream.Position != position)
+            {
+                wr.Write((byte)pad_val);
+            }
         }
 
         static bool ExecuteCommand(string Command)
@@ -121,7 +132,10 @@ namespace ShaderLibrary.CompileTool
             var sb = new System.Text.StringBuilder();
             using (var writer = new System.IO.StringWriter(sb))
             {
-                foreach (var line in src.Split("\n"))
+                string[] stringSeparators = new string[] { "\r\n" };
+                string[] lines = src.Split(stringSeparators, StringSplitOptions.None);
+
+                foreach (var line in lines)
                 {
                     string value = line;
                     if (line.StartsWith("#define"))

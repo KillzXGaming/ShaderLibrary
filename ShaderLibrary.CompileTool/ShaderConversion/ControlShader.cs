@@ -164,9 +164,9 @@ namespace ShaderLibrary.CompileTool
                 writer.Write(shader_code);
                 writer.Write(new byte[128]);
 
-                //constants
+                //constants (don't write atm, buggy alignment issues)
                 this.constants_start = (uint)writer.BaseStream.Position;
-                writer.Write(constants);
+               // writer.Write(constants);
                 this.constants_end = (uint)writer.BaseStream.Position;
             }
             //save output
