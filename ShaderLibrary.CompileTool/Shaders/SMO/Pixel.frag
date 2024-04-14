@@ -182,6 +182,8 @@ layout (location = 3) out vec4 oBaseColor;
 #define o_ao 50
 #define o_transparent_tex 50
 #define o_alpha 116
+#define o_cloth_mask_map 116
+#define o_cloth_map 116
 
 #define roughness_component 30 //red
 #define metalness_component 30 //red
@@ -391,6 +393,10 @@ vec4 GetComp(vec4 v, int comp_mask)
         case 40: return v.gggg;
         case 50: return v.bbbb;
         case 60: return v.aaaa;
+        case 70:  return clamp(0.0 - v.rrrr + 1.0, 0.0, 1.0);
+        case 80:  return clamp(0.0 - v.gggg + 1.0, 0.0, 1.0);
+        case 90:  return clamp(0.0 - v.bbbb + 1.0, 0.0, 1.0);
+        case 100: return clamp(0.0 - v.aaaa + 1.0, 0.0, 1.0);
     }
     return v.rgba;
 }
@@ -842,6 +848,9 @@ void main()
 
     if (enable_cloth_nov)
     {
+        vec4 cloth_mask = CalculateOutput(o_cloth_mask_map);
+        vec4 cloth_map = CalculateOutput(o_cloth_map);
+
     }
 
     if (enable_material_sphere_light)
