@@ -146,6 +146,9 @@ layout (location = 3) out vec4 oBaseColor;
 
 #define enable_material_light true
 #define enable_material_sphere_light true
+#define enable_structural_color false
+
+#define enable_cloth_nov false
 
 #define is_apply_irradiance_pixel true
 
@@ -162,7 +165,13 @@ layout (location = 3) out vec4 oBaseColor;
 #define emission_type 1
 #define emission_scale_type 7
 
-#define vtxcolor_type -1
+#define VTX_COLOR_TYPE_NONE -1
+#define VTX_COLOR_TYPE_DIFFUSE 0
+#define VTX_COLOR_TYPE_IRRADIANCE 1
+#define VTX_COLOR_TYPE_EMISSION 2
+#define VTX_COLOR_TYPE_DIFFUSE_BLEND 3
+
+#define vtxcolor_type VTX_COLOR_TYPE_NONE
 
 #define o_base_color     10
 #define o_normal         20
@@ -455,9 +464,9 @@ vec4 CalculateBaseColor()
          basecolor_output = texture(cTextureBaseColor, SelectTexCoord(base_color_fuv_selector));
     if (enable_base_color_mul_color)
         basecolor_output *= mat.base_color_mul_color;
-    if (vtxcolor_type == 0)
+    if (vtxcolor_type == VTX_COLOR_TYPE_DIFFUSE)
         basecolor_output.rgb *= fVertexColor.rgb;
-    else if (vtxcolor_type == 3)
+    else if (vtxcolor_type == VTX_COLOR_TYPE_DIFFUSE)
     {
         basecolor_output.rgb *= basecolor_output.rgb +
             (basecolor_output.rgb *-fVertexColor.rgb + fVertexColor.rgb);
@@ -671,6 +680,36 @@ vec3 CalculateNormals(vec2 normals, vec2 normal_map)
     return normalize(tbn_matrix * tangent_normal).xyz;
 }
 
+vec3 CalculateEmissionScale(vec3 emission, int scale_type, vec4 irradiance)
+{
+    //Emission scale
+    if (scale_type == 1) //material light sphere
+        emission = max(irradiance.rgb * emission.rgb, emission.rgb);
+    if (scale_type == 2) //material light sphere max 1.0
+        emission = emission * max(irradiance.rgb, 1.0);
+    if (scale_type == 4) //emission * material light sphere color
+        emission = emission * irradiance.rgb;
+    if (scale_type == 4) //emission * material light sphere scale
+        emission = emission * irradiance.w;
+    if (scale_type == 5) //max sphere light amount
+    {
+        float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
+        emission = max_scale * emission;
+    }
+    if (scale_type == 6) //max sphere light amount limited by emission amount
+    {
+        float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
+        emission = max(vec3(max_scale) * emission, emission);
+    }
+    if (scale_type == 7)
+    {   
+        //exposure scale    
+        float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).a;
+        emission *= 1.0 / exposure * mdlEnvView.Exposure.x;
+    }
+    return emission;
+}
+
 vec3 CalculateEmission(vec4 irradiance)
 {
     vec3 emission = vec3(0.0);
@@ -679,34 +718,11 @@ vec3 CalculateEmission(vec4 irradiance)
     {
         emission = GetComp(CalculateOutput(o_emission), emission_component).rgb;
 
-        if (vtxcolor_type == 2)
+        if (vtxcolor_type == VTX_COLOR_TYPE_EMISSION)
             emission *= fVertexColor.rgb;
 
         //Emission scale
-        if (emission_scale_type == 1) //material light sphere
-            emission = max(irradiance.rgb * emission.rgb, emission.rgb);
-        if (emission_scale_type == 2) //material light sphere max 1.0
-            emission = emission * max(irradiance.rgb, 1.0);
-        if (emission_scale_type == 4) //emission * material light sphere color
-            emission = emission * irradiance.rgb;
-        if (emission_scale_type == 4) //emission * material light sphere scale
-            emission = emission * irradiance.w;
-        if (emission_scale_type == 5) //max sphere light amount
-        {
-            float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
-            emission = max_scale * emission;
-        }
-        if (emission_scale_type == 6) //max sphere light amount limited by emission amount
-        {
-            float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
-            emission = max(vec3(max_scale) * emission, emission);
-        }
-        if (emission_scale_type == 7)
-        {   
-            //exposure scale    
-            float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).a;
-            emission *= 1.0 / exposure * mdlEnvView.Exposure.x;
-        }
+        emission = CalculateEmissionScale(emission, emission_scale_type, irradiance);
     }
     return emission;
 }
@@ -763,7 +779,7 @@ vec4 CalculateDiffuseIrradianceLight(Light light)
     else //calculated per vertex
     {
         //By vertex color
-        if (vtxcolor_type == 1)
+        if (vtxcolor_type == VTX_COLOR_TYPE_IRRADIANCE)
             irradiance.rgba = fVertexColor;
         else //Calculated in vertex shader
             irradiance.rgba = fIrradianceVertex.rgba;
@@ -802,6 +818,8 @@ void main()
     vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
     vec3 kS = FresnelSchlickRoughness(max(dot(light.N, light.L), 0.0), f0, roughness);
 
+    float m = metalness * 0.5 + 0.5;
+
     //lower the intensity as current calculations are too strong
     vec3 brdf = kS * 0.3;
 
@@ -820,7 +838,14 @@ void main()
         specularTerm.rgb += brdf * (spec_cubemap.rgb * mdlEnvView.Exposure.y);
     }
 
-    //todo enable_structural_color * light cube when used
+    if (enable_structural_color)
+    {
+        //todo cTextureCubeMapStructuralColor * light cube when used
+    }
+
+    if (enable_cloth_nov)
+    {
+    }
 
     if (enable_material_sphere_light)
     {
@@ -828,9 +853,6 @@ void main()
         vec4 sphere_light = textureLod(cTextureMaterialLightSphere, sphereCoords, roughness).xyzw;
         specularTerm.rgb += brdf * (sphere_light.rgb * mdlEnvView.Exposure.y);
     }
-
-    float m = metalness * 0.5 + 0.5;
-
 
     //Diffuse
     vec3 diffuseTerm = base_color.rgb;
