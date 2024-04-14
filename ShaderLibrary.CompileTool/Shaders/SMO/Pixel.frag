@@ -466,11 +466,8 @@ vec4 CalculateBaseColor()
         basecolor_output *= mat.base_color_mul_color;
     if (vtxcolor_type == VTX_COLOR_TYPE_DIFFUSE)
         basecolor_output.rgb *= fVertexColor.rgb;
-    else if (vtxcolor_type == VTX_COLOR_TYPE_DIFFUSE)
-    {
-        basecolor_output.rgb *= basecolor_output.rgb +
-            (basecolor_output.rgb *-fVertexColor.rgb + fVertexColor.rgb);
-    }
+    else if (vtxcolor_type == VTX_COLOR_TYPE_DIFFUSE_BLEND)
+       basecolor_output.rgb *= (1.0 - fVertexColor.rgb * fVertexColor.rgb);
 
     return basecolor_output;
 }
