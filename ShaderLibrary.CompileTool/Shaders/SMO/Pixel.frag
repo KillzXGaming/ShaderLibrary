@@ -139,15 +139,17 @@ layout (location = 3) out vec4 oBaseColor;
 #define enable_emission false
 #define enable_sss true
 #define enable_alphamask false
+#define enable_translucent false
 
 #define enable_indirect0 false
 #define enable_indirect1 false
 
 #define enable_material_light true
+#define enable_material_sphere_light true
 
 #define is_apply_irradiance_pixel true
 
-#define is_forward_ggx false
+#define is_use_forward_ggx_specular false
 
 #define indirect0_tgt_uv 10
 #define indirect1_tgt_uv 13
@@ -342,7 +344,7 @@ Light SetupLight(vec3 N)
     light.V = normalize(light.I); // view
     light.L = normalize(mdlEnvView.Dir.xyz ); // Light
     light.H = normalize(light.V + light.L); // half angle
-    light.R = reflect(dir.xyz, normalize(light.N)); // reflection
+    light.R = vec3(light.N.x, light.N.y, -light.N.z) * mat3(mdlEnvView.cViewInv); // reflection
     light.NV = saturate(dot(light.N, light.V));
 
     return light;
@@ -669,7 +671,7 @@ vec3 CalculateNormals(vec2 normals, vec2 normal_map)
     return normalize(tbn_matrix * tangent_normal).xyz;
 }
 
-vec3 CalculateEmission(vec4 sphere_light_map)
+vec3 CalculateEmission(vec4 irradiance)
 {
     vec3 emission = vec3(0.0);
 
@@ -682,21 +684,21 @@ vec3 CalculateEmission(vec4 sphere_light_map)
 
         //Emission scale
         if (emission_scale_type == 1) //material light sphere
-            emission = max(sphere_light_map.rgb * emission.rgb, emission.rgb);
+            emission = max(irradiance.rgb * emission.rgb, emission.rgb);
         if (emission_scale_type == 2) //material light sphere max 1.0
-            emission = emission * max(sphere_light_map.rgb, 1.0);
+            emission = emission * max(irradiance.rgb, 1.0);
         if (emission_scale_type == 4) //emission * material light sphere color
-            emission = emission * sphere_light_map.rgb;
+            emission = emission * irradiance.rgb;
         if (emission_scale_type == 4) //emission * material light sphere scale
-            emission = emission * sphere_light_map.w;
+            emission = emission * irradiance.w;
         if (emission_scale_type == 5) //max sphere light amount
         {
-            float max_scale = max(max(sphere_light_map.g, sphere_light_map.b), sphere_light_map.r);
+            float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
             emission = max_scale * emission;
         }
         if (emission_scale_type == 6) //max sphere light amount limited by emission amount
         {
-            float max_scale = max(max(sphere_light_map.g, sphere_light_map.b), sphere_light_map.r);
+            float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
             emission = max(vec3(max_scale) * emission, emission);
         }
         if (emission_scale_type == 7)
@@ -731,6 +733,45 @@ float CalculateDirectionalLight(vec3 N)
     return saturate(dot(N, mdlEnvView.Dir.xyz)) * (1.0 / PI);
 }
 
+vec4 CalculateDiffuseIrradianceLight(Light light)
+{
+    vec4 irradiance = vec4(0.0, 0.0, 0.0, 1.0);
+
+    //irradiance lighting
+    if (is_apply_irradiance_pixel)
+    {
+        if (enable_material_light) //use material light cubemap
+        {
+            const float MAX_LOD = 5.0;
+            vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, MAX_LOD);
+            irradiance.rgba = irradiance_cubemap.rgba * mdlEnvView.Exposure.y;
+        }
+        else //use material roughness cubemap
+        {
+            const float MAX_LOD = 5.0;
+            vec4 irradiance_cubemap = DecodeCubemap(cTexCubeMapRoughness, light.R, MAX_LOD);
+            irradiance.rgba = irradiance_cubemap.rgba * mdlEnvView.Exposure.y;
+        }
+        //add sphere light if enabled
+        if (enable_material_sphere_light)
+        {
+	        vec2 sphereCoords = light.N.xy * vec2(0.5) + vec2(0.5,0.5);
+            vec4 sphere_light = textureLod(cTextureMaterialLightSphere, sphereCoords, 1.0).xyzw;
+            irradiance.rgba += sphere_light.rgba * mdlEnvView.Exposure.y;
+        }
+    }
+    else //calculated per vertex
+    {
+        //By vertex color
+        if (vtxcolor_type == 1)
+            irradiance.rgba = fVertexColor;
+        else //Calculated in vertex shader
+            irradiance.rgba = fIrradianceVertex.rgba;
+    }
+    return irradiance;
+}
+
+
 void main()
 {
     CalculateIndirectCoordinates();
@@ -754,9 +795,6 @@ void main()
     //Normals
     vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
 
-    //Sphere light mapping
-    vec4 sphere_map = textureLod(cTextureMaterialLightSphere, CalcSphereCoords(N.xyz), sqrt(roughness)).rgba;
-
     //Lighting
     Light light = SetupLight(N);
 
@@ -767,41 +805,32 @@ void main()
     //lower the intensity as current calculations are too strong
     vec3 brdf = kS * 0.3;
 
-    //irradiance lighting
-    if (is_apply_irradiance_pixel)
-    {
-        if (enable_material_light)
-        {
-            const float MAX_LOD = 5.0;
-            vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
-            irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
-
-            specularTerm = irradiance_cubemap.rgb * brdf;
-        }
-        else
-        {
-            const float MAX_LOD = 5.0;
-            vec4 irradiance_cubemap = DecodeCubemap(cTexCubeMapRoughness, light.R, MAX_LOD);
-            irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
-
-            specularTerm = irradiance_cubemap.rgb * brdf;
-        }
-    }
-    else
-    {
-        const float MAX_LOD = 5.0;
-        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
-        irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
-
-        specularTerm = irradiance_cubemap.rgb * brdf;
-    }
-
     //specular ggx
-    if (is_forward_ggx)
+    if (is_use_forward_ggx_specular)
     {
         vec3 spec_intensity = calcSpecularGGX(roughness, f0, light.N, light.V, light.L, light.H);
         specularTerm += spec_intensity;
     }
+
+    //Lighting
+    if (enable_material_light) //use material light cubemap
+    {
+        const float MAX_LOD = 5.0;
+        vec4 spec_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
+        specularTerm.rgb += brdf * (spec_cubemap.rgb * mdlEnvView.Exposure.y);
+    }
+
+    //todo enable_structural_color * light cube when used
+
+    if (enable_material_sphere_light)
+    {
+	    vec2 sphereCoords = light.N.xy * vec2(0.5) + vec2(0.5,0.5);
+        vec4 sphere_light = textureLod(cTextureMaterialLightSphere, sphereCoords, roughness).xyzw;
+        specularTerm.rgb += brdf * (sphere_light.rgb * mdlEnvView.Exposure.y);
+    }
+
+    float m = metalness * 0.5 + 0.5;
+
 
     //Diffuse
     vec3 diffuseTerm = base_color.rgb;
@@ -809,6 +838,10 @@ void main()
     //Adjust for metalness.
     diffuseTerm *= saturate(1.0 - metalness);
     diffuseTerm *= vec3(1) - brdf;
+
+    //irradiance lighting
+    vec4 irradiance = CalculateDiffuseIrradianceLight(light);
+    diffuseTerm *= irradiance.rgb;
 
     //Ambient occ
     if (enable_ao)
@@ -861,7 +894,19 @@ void main()
 
     //Emission
     if (enable_emission)
-        oLightBuf.rgb += CalculateEmission(sphere_map).rgb;
+        oLightBuf.rgb += CalculateEmission(irradiance).rgb;
+
+    //metal flake emission here
+
+    if (enable_sss) //TODO sub surface scattering
+    {
+        oLightBuf.rgb += vec3(0.0);
+    }
+
+    if (enable_translucent) //adjusts with shadows TODO
+    {
+        oLightBuf.rgb = oLightBuf.rgb;
+    }
 
     //clamp 0 - 2048 due to HDR/tone mapping
     oLightBuf.rgb = max(oLightBuf.rgb, 0.0);
@@ -876,6 +921,7 @@ void main()
     oNormalizedLinearDepth.z = 0.0;
     oNormalizedLinearDepth.w = 0.0;
 
+    //if cRenderType == 0
     oBaseColor = EncodeBaseColor(saturate(base_color.rgb), roughness, metalness, N);
     return;
 }

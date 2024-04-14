@@ -290,14 +290,8 @@ void main()
 
     if (!is_apply_irradiance_pixel)
     {
-        vec3 normal = normalize(fNormalsDepth.xyz);
-        float maxAbsComponent = max(abs(normal.x), max(abs(normal.y), abs(normal.z)));
-        vec3 texCoordOffset = vec3(normal.x / maxAbsComponent, normal.y / maxAbsComponent, 0.0 - 1.0 / maxAbsComponent);
-
-        float roughness = 0;
-
         const float MAX_LOD = 5.0;
-        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, texCoordOffset.xyz, MAX_LOD);
+        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, fNormalsDepth.xyz, MAX_LOD);
         irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
         fIrradianceVertex = irradiance_cubemap;
