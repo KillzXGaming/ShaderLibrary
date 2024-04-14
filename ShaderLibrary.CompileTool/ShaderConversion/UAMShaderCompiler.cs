@@ -79,6 +79,8 @@ namespace ShaderLibrary.CompileTool
 
                 //raw byte code
                 writer.Write(byte_code);
+
+                AlignBytes(writer, 4096);
             }
             return mem.ToArray();
         }

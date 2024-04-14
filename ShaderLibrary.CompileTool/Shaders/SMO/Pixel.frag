@@ -393,10 +393,10 @@ vec4 GetComp(vec4 v, int comp_mask)
         case 40: return v.gggg;
         case 50: return v.bbbb;
         case 60: return v.aaaa;
-        case 70:  return clamp(0.0 - v.rrrr + 1.0, 0.0, 1.0);
-        case 80:  return clamp(0.0 - v.gggg + 1.0, 0.0, 1.0);
-        case 90:  return clamp(0.0 - v.bbbb + 1.0, 0.0, 1.0);
-        case 100: return clamp(0.0 - v.aaaa + 1.0, 0.0, 1.0);
+        case 70:  return clamp(1.0 - v.rrrr, 0.0, 1.0);
+        case 80:  return clamp(1.0 - v.gggg, 0.0, 1.0);
+        case 90:  return clamp(1.0 - v.bbbb, 0.0, 1.0);
+        case 100: return clamp(1.0 - v.aaaa, 0.0, 1.0);
     }
     return v.rgba;
 }
@@ -417,7 +417,7 @@ vec2 SelectTexCoord(int mtx_select)
         return fIndirectCoords.zw;
     else if  (mtx_select == 30) //sphere mapping
         return fSphereCoords.xy;
-    else
+    else //TODO 50 - 54 are proj texture types
         return fTexCoords01.xy;
 }
 
@@ -584,7 +584,6 @@ vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
            blend##num##_eq) \
 
 //Updates any blend variables referenced by flag
-
 
 void TryCalculateReferencedBlend(int flag)
 {
@@ -755,6 +754,8 @@ float CalculateDirectionalLight(vec3 N)
 vec4 CalculateDiffuseIrradianceLight(Light light)
 {
     vec4 irradiance = vec4(0.0, 0.0, 0.0, 1.0);
+    //Z seems flipped
+    vec3 dir = vec3(light.N.x, light.N.y, -light.N.z);
 
     //irradiance lighting
     if (is_apply_irradiance_pixel)
@@ -762,13 +763,13 @@ vec4 CalculateDiffuseIrradianceLight(Light light)
         if (enable_material_light) //use material light cubemap
         {
             const float MAX_LOD = 5.0;
-            vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, MAX_LOD);
+            vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, dir, MAX_LOD);
             irradiance.rgba = irradiance_cubemap.rgba * mdlEnvView.Exposure.y;
         }
         else //use material roughness cubemap
         {
             const float MAX_LOD = 5.0;
-            vec4 irradiance_cubemap = DecodeCubemap(cTexCubeMapRoughness, light.R, MAX_LOD);
+            vec4 irradiance_cubemap = DecodeCubemap(cTexCubeMapRoughness, dir, MAX_LOD);
             irradiance.rgba = irradiance_cubemap.rgba * mdlEnvView.Exposure.y;
         }
         //add sphere light if enabled
@@ -813,6 +814,7 @@ void main()
 
     //Normals
     vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
+    vec3 view_normal = N * mat3(mdlEnvView.cView);
 
     //Lighting
     Light light = SetupLight(N);
@@ -844,13 +846,6 @@ void main()
     if (enable_structural_color)
     {
         //todo cTextureCubeMapStructuralColor * light cube when used
-    }
-
-    if (enable_cloth_nov)
-    {
-        vec4 cloth_mask = CalculateOutput(o_cloth_mask_map);
-        vec4 cloth_map = CalculateOutput(o_cloth_map);
-
     }
 
     if (enable_material_sphere_light)
@@ -912,7 +907,7 @@ void main()
                 discard;
         }
     }
-    float light_intensity = CalculateDirectionalLight(N) * 1.5;
+    float light_intensity = CalculateDirectionalLight(N);
 
     light_intensity = dot(N, mdlEnvView.Dir.xyz);
     light_intensity = 1.0;
@@ -920,9 +915,19 @@ void main()
     //Light output
     oLightBuf.rgb = specularTerm + diffuseTerm.rgb * fLightColor.xyz * light_intensity;
 
+    oLightBuf.rgb = irradiance.rgb;
+
     //Emission
     if (enable_emission)
         oLightBuf.rgb += CalculateEmission(irradiance).rgb;
+
+
+    if (enable_cloth_nov)
+    {
+        vec4 cloth_mask = CalculateOutput(o_cloth_mask_map);
+        vec4 cloth_map = CalculateOutput(o_cloth_map);
+
+    }
 
     //metal flake emission here
 
