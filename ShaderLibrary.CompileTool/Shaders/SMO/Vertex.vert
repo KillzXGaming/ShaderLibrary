@@ -22,6 +22,8 @@
 #define enable_fuv2 false
 #define enable_fuv3 false
 
+#define enable_blend_tangent false
+#define o_normal         20
 
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 15) uniform sampler2D cDirectionalLightColor;
@@ -89,7 +91,8 @@ layout (binding = 3, std140) uniform Material
     mat2x4 tex_mtx3;
 
     float displacement_scale;
-    vec3 displacement1_scale;
+    float displacement1_scale;
+    vec2 padding;
 
     vec4 displacement_color;
     vec4 displacement1_color;
@@ -147,14 +150,16 @@ layout (location = 10) in vec4 vBoneWeight;
 layout (location = 11) in ivec4 vBoneIndices;
 
 
-layout (location = 0) out vec4 fNormalsDepth;
-layout (location = 1) out vec4 fTexCoords01;
-layout (location = 2) out vec4 fTangents;
-layout (location = 3) out vec4 fTexCoords23;
-layout (location = 4) out vec4 fLightColor;
-layout (location = 5) out vec4 fViewDirection;
+layout (location = 0) out vec4 fNormalsDepth; //Normals xyz, depth
+layout (location = 1) out vec4 fTangents; //Tangents xyz. bitagents x
+layout (location = 2) out vec4 fBitangents; //Bitangents yz
+layout (location = 3) out vec4 fViewPos; //Screen coords?, then view pos xy
+layout (location = 4) out vec4 fLightColorVPosZ; //Light RGB, view pos z
+layout (location = 5) out vec4 fTexCoords01; //Tex coords 0 -> 1 xy
+
+
 layout (location = 6) out vec4 fVertexColor;
-layout (location = 7) out vec4 fViewPos;
+layout (location = 7) out vec4 fTexCoords23;
 layout (location = 8) out vec4 fIrradianceVertex;
 layout (location = 9) out vec2 fSphereCoords;
 
@@ -264,8 +269,28 @@ void main()
     fNormalsDepth.w = linear_depth;
 
     //tangents
-    fTangents.xyz = skinNormal(vTangent.xyz, bone_index);
-    fTangents.w = vTangent.w;
+    if (enable_blend_tangent)
+    {
+        vec3 tangents = skinNormal(vTangent.xyz, bone_index);
+        fTangents.xyz = tangents.xyz * vTangent.w;
+
+        vec4 bi_tangent = vec4(skinNormal(vBitangent.xyz, bone_index).xyz, 1.0);
+
+        fTangents.w   = bi_tangent.x   * vBitangent.w;
+        fBitangents.xy = bi_tangent.yz * vBitangent.w;
+    }
+    else if (o_normal != 30) //if normal output is not just vertex normals
+    {
+        vec3 tangents = skinNormal(vTangent.xyz, bone_index);
+        fTangents.xyz = tangents.xyz * vTangent.w;
+
+        //Compute bitangent output
+        vec3 B = normalize(cross(fNormalsDepth.xyz, tangents.xyz) * vTangent.w);
+
+        fTangents.w   = B.x;
+        fBitangents.x = B.y;
+        fBitangents.y = B.z;
+    }
 
     //material tex coords
     fTexCoords01.xy  = get_tex_coord(fuv0_selector, fuv0_mtx, enable_fuv0); 
@@ -273,20 +298,15 @@ void main()
     fTexCoords23.xy  = get_tex_coord(fuv2_selector, fuv2_mtx, enable_fuv2); 
     fTexCoords23.zw  = get_tex_coord(fuv3_selector, fuv3_mtx, enable_fuv3); 
 
-    vec3 light_color = textureLod(cDirectionalLightColor, vec2(mdlEnvView.Dir.w, 0.5), 0.0).xyz;
-    fLightColor.xyz = light_color;
-
     fVertexColor = vColor;
 
-    vec3 view_pos = position.xyz * mat3(mdlEnvView.cView);
+    vec4 view_pos = vec4(position.xyz, 1.0) * mat4(mdlEnvView.cView);
 
-    //world pos - camera pos for eye position
-    fViewDirection.xyz = normalize(position.xyz - vec3(
-       mdlEnvView.cView[0].w,
-       mdlEnvView.cView[1].w, 
-       mdlEnvView.cView[2].w));
+    fViewPos.zw = view_pos.xy;
+    fLightColorVPosZ.w = view_pos.z;
 
-    fViewPos.xyz = view_pos;
+    vec3 light_color = textureLod(cDirectionalLightColor, vec2(mdlEnvView.Dir.w, 0.5), 0.0).xyz;
+    fLightColorVPosZ.xyz = light_color;
 
     if (!is_apply_irradiance_pixel)
     {

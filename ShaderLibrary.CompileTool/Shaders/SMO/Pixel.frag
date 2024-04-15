@@ -56,7 +56,8 @@ layout (binding = 3, std140) uniform Material
     mat2x4 tex_mtx3;
 
     float displacement_scale;
-    vec3 displacement1_scale;
+    float displacement1_scale;
+    vec2 padding;
 
     vec4 displacement_color;
     vec4 displacement1_color;
@@ -116,14 +117,14 @@ layout (binding = 23) uniform sampler2D cExposureTexture;
 layout (binding = 27) uniform sampler2D cTextureUniform4;
 
 
-layout (location = 0) in vec4 fNormalsDepth;
-layout (location = 1) in vec4 fTexCoords01;
-layout (location = 2) in vec4 fTangents;
-layout (location = 3) in vec4 fTexCoords23;
-layout (location = 4) in vec4 fLightColor;
-layout (location = 5) in vec4 fViewDirection;
+layout (location = 0) in vec4 fNormalsDepth; //Normals xyz, depth
+layout (location = 1) in vec4 fTangents; //Tangents xyz. bitagents x
+layout (location = 2) in vec4 fBitangents; //Bitangents yz
+layout (location = 3) in vec4 fViewPos; //Screen coords?, then view pos xy
+layout (location = 4) in vec4 fLightColorVPosZ; //Light RGB, view pos z
+layout (location = 5) in vec4 fTexCoords01; //Tex coords 0 -> 1 xy
 layout (location = 6) in vec4 fVertexColor;
-layout (location = 7) in vec4 fViewPos;
+layout (location = 7) in vec4 fTexCoords23;
 layout (location = 8) in vec4 fIrradianceVertex;
 layout (location = 9) in vec2 fSphereCoords;
 
@@ -344,11 +345,11 @@ struct Light
     float NV; //dot normal view
 };
 
-Light SetupLight(vec3 N)
+Light SetupLight(vec3 N, vec3 view_pos)
 {
     Light light;
 
-    vec3 dir = normalize(fViewPos.xyz);
+    vec3 dir = normalize(view_pos);
 
     light.N = N;
     light.I = vec3(0,0,1) * mat3(mdlEnvView.cView);
@@ -424,7 +425,7 @@ vec2 SelectTexCoord(int mtx_select)
 float CalulateSphereLight()
 {
     vec3 normal = fNormalsDepth.xyz;
-    vec3 dir = fViewDirection.xyz * vec3(1,-1,1) * mat3(mdlEnvView.cViewInv);
+    vec3 dir = normalize(vec3(fViewPos.zw, fLightColorVPosZ.z));
 
     return saturate(dot(dir.xyz, normal));
 }
@@ -666,11 +667,11 @@ vec3 ReconstructNormal(in vec2 t_NormalXY) {
     return vec3(t_NormalXY.xy, t_NormalZ);
 }
 
-vec3 CalculateNormals(vec2 normals, vec2 normal_map)
+vec3 CalculateNormals(vec3 normals, vec2 normal_map)
 {
-    vec3 N = vec3(normals, 1);
+    vec3 N = vec3(normals);
     vec3 T = vec3(fTangents.xyz);
-    vec3 B = normalize(cross(N, T) * fTangents.w);
+    vec3 B = vec3(fTangents.w, fBitangents.xy);
 
     mat3 tbn_matrix = mat3(T, B, N);
 
@@ -751,6 +752,15 @@ float CalculateDirectionalLight(vec3 N)
     return saturate(dot(N, mdlEnvView.Dir.xyz)) * (1.0 / PI);
 }
 
+float CalculateDirectionalLightWrap(vec3 N)
+{
+    float NV = dot(vec3(N), mdlEnvView.Dir.xyz);
+
+    float lighting_factor = clamp(fma(NV, 0.5, 0.5) * fma(NV, 0.5, 0.5) - clamp(NV, 0.0, 1.0), 0.0, 1.0);
+    return lighting_factor * clamp(-0.0 + mat.wrap_coef, 0.0, 1.0);
+}
+
+
 vec4 CalculateDiffuseIrradianceLight(Light light)
 {
     vec4 irradiance = vec4(0.0, 0.0, 0.0, 1.0);
@@ -791,6 +801,22 @@ vec4 CalculateDiffuseIrradianceLight(Light light)
     return irradiance;
 }
 
+vec3 CalculateBrdf(vec3 view_normal, vec3 dir, float roughness, vec3 f0)
+{
+    float r = (1.0 - roughness);
+    float a = r * r;
+    float a2 = a * a;
+
+    float nv = dot(view_normal, -dir);
+
+    float s = clamp(min(a2 * fma(a2, 1.895, -0.1688), 
+        fma(nv, fma(nv, fma(nv, -5.069, 8.404), -4.853), 0.9903)) + 0.0, 0.0, 1.0);
+
+    float b = clamp(fma(nv, fma(nv, 0.1939, -0.5228), a2 *
+        (fma(a2, fma(a2, 2.661, -3.603), nv * 1.404) + 1.699)) + 0.6045, 0.0, 1.0) - s;
+
+    return f0.rgb * b + s * saturate(f0.g * 50.0);
+}
 
 void main()
 {
@@ -806,27 +832,29 @@ void main()
     vec4 transparent_tex     = CalculateOutput(o_transparent_tex);
     float alpha      = GetComp(CalculateOutput(o_alpha), alpha_component).w;
 
+    vec3 view_pos = vec3(fViewPos.zw, fLightColorVPosZ.w);
+
     vec3 specularTerm = vec3(0.0);
+
+    vec3 light_color = fLightColorVPosZ.xyz;
 
     //Roughness adjust
     roughness *= mat.force_roughness;
     roughness = saturate(roughness);
 
     //Normals
-    vec3 N = CalculateNormals(fNormalsDepth.rg, normal_map);
-    vec3 view_normal = N * mat3(mdlEnvView.cView);
+    vec3 N = CalculateNormals(fNormalsDepth.rgb, normal_map);
+    vec3 view_normal = normalize(N * mat3(mdlEnvView.cView));
 
     //Lighting
-    Light light = SetupLight(N);
+    Light light = SetupLight(N, view_pos);
 
     //Fresnel
     vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
-    vec3 kS = FresnelSchlickRoughness(max(dot(light.N, light.L), 0.0), f0, roughness);
-
-    float m = metalness * 0.5 + 0.5;
+    vec3 dir = normalize(view_pos);
 
     //lower the intensity as current calculations are too strong
-    vec3 brdf = kS * 0.3;
+    vec3 brdf = CalculateBrdf(view_normal, dir, roughness, f0);
 
     //specular ggx
     if (is_use_forward_ggx_specular)
@@ -836,11 +864,13 @@ void main()
     }
 
     //Lighting
+
+    float spec = metalness * 0.5 + 0.5;
     if (enable_material_light) //use material light cubemap
     {
         const float MAX_LOD = 5.0;
         vec4 spec_cubemap = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * MAX_LOD);
-        specularTerm.rgb += brdf * (spec_cubemap.rgb * mdlEnvView.Exposure.y);
+        specularTerm.rgb += spec * (spec_cubemap.rgb * mdlEnvView.Exposure.y) * brdf;
     }
 
     if (enable_structural_color)
@@ -852,7 +882,7 @@ void main()
     {
 	    vec2 sphereCoords = light.N.xy * vec2(0.5) + vec2(0.5,0.5);
         vec4 sphere_light = textureLod(cTextureMaterialLightSphere, sphereCoords, roughness).xyzw;
-        specularTerm.rgb += brdf * (sphere_light.rgb * mdlEnvView.Exposure.y);
+        specularTerm.rgb += spec * (sphere_light.rgb * mdlEnvView.Exposure.y) * brdf;
     }
 
     //Diffuse
@@ -907,33 +937,28 @@ void main()
                 discard;
         }
     }
-    float light_intensity = CalculateDirectionalLight(N);
 
-    light_intensity = dot(N, mdlEnvView.Dir.xyz);
-    light_intensity = 1.0;
-
-    //Light output
-    oLightBuf.rgb = specularTerm + diffuseTerm.rgb * fLightColor.xyz * light_intensity;
-
-    oLightBuf.rgb = irradiance.rgb;
+    //Light output diffuse + specular
+    oLightBuf.rgb = diffuseTerm.rgb + specularTerm;
 
     //Emission
     if (enable_emission)
         oLightBuf.rgb += CalculateEmission(irradiance).rgb;
 
-
+    //TODO cloth typically used for hair strand lighting
     if (enable_cloth_nov)
     {
         vec4 cloth_mask = CalculateOutput(o_cloth_mask_map);
         vec4 cloth_map = CalculateOutput(o_cloth_map);
 
     }
-
     //metal flake emission here
 
-    if (enable_sss) //TODO sub surface scattering
+    //Sub surface scattering
+    if (enable_sss)
     {
-        oLightBuf.rgb += vec3(0.0);
+        float light_intensity = CalculateDirectionalLightWrap(view_normal);
+        oLightBuf.rgb += light_color.xyz * diffuseTerm.rgb * light_intensity * sss.r * (1.0 / PI);
     }
 
     if (enable_translucent) //adjusts with shadows TODO
@@ -944,6 +969,13 @@ void main()
     //clamp 0 - 2048 due to HDR/tone mapping
     oLightBuf.rgb = max(oLightBuf.rgb, 0.0);
     oLightBuf.rgb = min(oLightBuf.rgb, 2048.0);
+
+   // vec4 spec = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * 5);
+  //  oLightBuf.rgb = max(spec.rgb, 0.0); //reflect test
+  //  oLightBuf.rgb = brdf; //brdf test
+    //oLightBuf.rgb = vec3(light_intensity); //brdf test
+
+  
 
     //Normals output
     oWorldNrm.rg = N.rg * 0.5 + 0.5;
