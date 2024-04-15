@@ -92,12 +92,16 @@ layout (binding = 3, std140) uniform Material
     float cloth_nov_emission_scale0;
     vec3 cloth_nov_noise_mask_scale0;
     vec4 proc_texture_3d_scale;
-    vec4 flow0_param;
+
+   // vec4 flow0_param;
+
     vec4 ripple_emission_color;
     vec4 hack_color;
+
     vec4 stain_color;
     float stain_uv_scale;
     float stain_rate;
+
     float material_lod_roughness;
     float material_lod_metalness;
 }mat;
@@ -113,9 +117,8 @@ layout (binding = 6) uniform samplerCube cTexCubeMapRoughness;
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
 layout (binding = 22) uniform sampler2D cTextureMaterialLightSphere;
 layout (binding = 23) uniform sampler2D cExposureTexture;
-
+layout (binding = 25) uniform sampler3D cTextureProcTexture3D;
 layout (binding = 27) uniform sampler2D cTextureUniform4;
-
 
 layout (location = 0) in vec4 fNormalsDepth; //Normals xyz, depth
 layout (location = 1) in vec4 fTangents; //Tangents xyz. bitagents x
@@ -128,10 +131,15 @@ layout (location = 7) in vec4 fTexCoords23;
 layout (location = 8) in vec4 fIrradianceVertex;
 layout (location = 9) in vec2 fSphereCoords;
 
+layout (location = 11) in vec4 fVertexPos; 
+
+
 layout (location = 0) out vec4 oLightBuf;
 layout (location = 1) out vec4 oWorldNrm;
 layout (location = 2) out vec4 oNormalizedLinearDepth;
 layout (location = 3) out vec4 oBaseColor;
+
+#define enable_add_stain_proc_texture_3d false
 
 #define enable_base_color true
 #define enable_base_color_mul_color false
@@ -150,6 +158,7 @@ layout (location = 3) out vec4 oBaseColor;
 #define enable_structural_color false
 
 #define enable_cloth_nov false
+
 
 #define is_apply_irradiance_pixel true
 
@@ -350,13 +359,15 @@ Light SetupLight(vec3 N, vec3 view_pos)
     Light light;
 
     vec3 dir = normalize(view_pos);
+    vec3 view_normal = normalize(N * mat3(mdlEnvView.cView));
+    vec3 cubemap_coords = reflect(dir, view_normal.rgb) * mat3(mdlEnvView.cViewInv);
 
     light.N = N;
     light.I = vec3(0,0,1) * mat3(mdlEnvView.cView);
     light.V = normalize(light.I); // view
     light.L = normalize(mdlEnvView.Dir.xyz ); // Light
     light.H = normalize(light.V + light.L); // half angle
-    light.R = vec3(light.N.x, light.N.y, -light.N.z) * mat3(mdlEnvView.cViewInv); // reflection
+    light.R = vec3(cubemap_coords.x, cubemap_coords.y, -cubemap_coords.z); // reflection
     light.NV = saturate(dot(light.N, light.V));
 
     return light;
@@ -424,10 +435,12 @@ vec2 SelectTexCoord(int mtx_select)
 
 float CalulateSphereLight()
 {
-    vec3 normal = fNormalsDepth.xyz;
-    vec3 dir = normalize(vec3(fViewPos.zw, fLightColorVPosZ.z));
+    vec3 view_normal = -normalize(fNormalsDepth.xyz * mat3(mdlEnvView.cView));
+    vec3 view_pos = vec3(fViewPos.zw, fLightColorVPosZ.w);
 
-    return saturate(dot(dir.xyz, normal));
+    vec3 dir = normalize(view_pos);
+
+    return saturate( dot(view_normal, dir));
 }
 
 vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
@@ -888,6 +901,15 @@ void main()
     //Diffuse
     vec3 diffuseTerm = base_color.rgb;
 
+    //Dirt stain
+    if (enable_add_stain_proc_texture_3d)
+    {
+        vec3 stain_texcoord = fVertexPos.xyz * mat.stain_uv_scale;
+        float stain_intensity = texture(cTextureProcTexture3D, stain_texcoord).x * mat.stain_rate;
+
+        diffuseTerm.rgb = clamp(mix(diffuseTerm.rgb,  mat.stain_color.rgb, stain_intensity), 0.0, 1.0);
+    }
+
     //Adjust for metalness.
     diffuseTerm *= saturate(1.0 - metalness);
     diffuseTerm *= vec3(1) - brdf;
@@ -980,7 +1002,6 @@ void main()
     //Normals output
     oWorldNrm.rg = N.rg * 0.5 + 0.5;
 
-    oNormalizedLinearDepth.r = 0.0; //todo. This causes flickering due to depth not matching with depth shader
     oNormalizedLinearDepth.r = fNormalsDepth.w * gl_FragCoord.w * (1.0 / gl_FragCoord.w);
     oNormalizedLinearDepth.y = 0.0;
     oNormalizedLinearDepth.z = 0.0;

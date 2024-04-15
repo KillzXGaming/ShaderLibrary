@@ -5,6 +5,8 @@
 
 #define is_apply_irradiance_pixel true
 
+#define enable_add_stain_proc_texture_3d false
+
 //The uv transform method to use. 
 //0 = none 1 = tex_mtx0, 2 = tex_mtx1, 3 = tex_mtx2, 4 = tex_mtx3
 #define fuv0_mtx 0
@@ -127,7 +129,7 @@ layout (binding = 3, std140) uniform Material
     float cloth_nov_emission_scale0;
     vec3 cloth_nov_noise_mask_scale0;
     vec4 proc_texture_3d_scale;
-    vec4 flow0_param;
+  //  vec4 flow0_param;
     vec4 ripple_emission_color;
     vec4 hack_color;
     vec4 stain_color;
@@ -162,6 +164,8 @@ layout (location = 6) out vec4 fVertexColor;
 layout (location = 7) out vec4 fTexCoords23;
 layout (location = 8) out vec4 fIrradianceVertex;
 layout (location = 9) out vec2 fSphereCoords;
+layout (location = 10) out vec4 fVertexPos; //todo loc 5 when used
+
 
 vec4 skin(vec3 pos, ivec4 index)
 {
@@ -170,7 +174,7 @@ vec4 skin(vec3 pos, ivec4 index)
     if (SKIN_COUNT == 0)
         newPosition = vec4(pos, 1.0) * mat4(shape.cTransform);
     if (SKIN_COUNT == 1)
-        newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]);
+        newPosition = vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]);
 
     if (SKIN_COUNT >  1)
         newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * vBoneWeight.x;
@@ -319,6 +323,11 @@ void main()
         irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
 
         fIrradianceVertex = irradiance_cubemap;
+    }
+
+    if (enable_add_stain_proc_texture_3d)
+    {
+        fVertexPos.xyz = vPosition.xyz;
     }
 
     //Sphere mapping 
