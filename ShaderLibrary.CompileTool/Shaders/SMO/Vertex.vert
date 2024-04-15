@@ -172,7 +172,7 @@ vec4 skin(vec3 pos, ivec4 index)
     if (SKIN_COUNT == 1)
         newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]);
 
-    if (SKIN_COUNT >= 1)
+    if (SKIN_COUNT >  1)
         newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * vBoneWeight.x;
     if (SKIN_COUNT >= 2)
         newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.y]) * vBoneWeight.y;
@@ -193,7 +193,7 @@ vec3 skinNormal(vec3 nr, ivec4 index)
     if (SKIN_COUNT == 1)
         newNormal =  nr * mat3(cBoneMatrices[index.x]);
 
-    if (SKIN_COUNT >= 1)
+    if (SKIN_COUNT >  1)
         newNormal =  nr * mat3(cBoneMatrices[index.x]) * vBoneWeight.x;
     if (SKIN_COUNT >= 2)
         newNormal += nr *  mat3(cBoneMatrices[index.y]) * vBoneWeight.y;
