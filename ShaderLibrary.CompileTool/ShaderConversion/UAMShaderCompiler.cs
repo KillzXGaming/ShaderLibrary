@@ -79,22 +79,8 @@ namespace ShaderLibrary.CompileTool
 
                 //raw byte code
                 writer.Write(byte_code);
-
-                AlignBytes(writer, 4096);
             }
             return mem.ToArray();
-        }
-
-        static void AlignBytes(BinaryWriter wr, int align, byte pad_val = 0)
-        {
-            var startPos = wr.BaseStream.Position;
-            long position = wr.Seek((int)(-wr.BaseStream.Position % align + align) % align, SeekOrigin.Current);
-
-            wr.Seek((int)startPos, System.IO.SeekOrigin.Begin);
-            while (wr.BaseStream.Position != position)
-            {
-                wr.Write((byte)pad_val);
-            }
         }
 
         static bool ExecuteCommand(string Command)
