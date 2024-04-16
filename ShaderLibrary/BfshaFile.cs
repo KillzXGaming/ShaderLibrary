@@ -1,4 +1,5 @@
-﻿using ShaderLibrary.IO;
+﻿using BfshaLibrary.WiiU;
+using ShaderLibrary.IO;
 using ShaderLibrary.Loading;
 using System;
 using System.Collections.Generic;
@@ -203,6 +204,8 @@ namespace ShaderLibrary
         public byte[] UnknownIndices = new byte[4];
         public byte[] UnknownIndices2 = new byte[4];
 
+        public int MaxRingItemSize = 0;
+
         public void Read(BinaryDataReader reader)
         {
             Name = reader.LoadString();
@@ -315,6 +318,13 @@ namespace ShaderLibrary
             if (program_index == -1) return null;
 
             return this.BnshFile.Variations[this.Programs[program_index].VariationIndex];
+        }
+
+        public ShaderVariation GetVariation(BfshaShaderProgram program)
+        {
+            if (program == null) return null;
+
+            return this.BnshFile.Variations[program.VariationIndex];
         }
 
         public int GetProgramIndex(Dictionary<string, string> options)
@@ -455,7 +465,7 @@ namespace ShaderLibrary
 
             option.SetKey(ref this.KeyTable[key_idx], choiceIndex);
 
-            var new_choiceIdx = option.GetChoiceIndex(this.KeyTable[baseIndex + option.Bit32Index]);
+            var new_choiceIdx = option.GetChoiceIndex(this.KeyTable[key_idx]);
             if (new_choiceIdx != choiceIndex)
                 throw new Exception("Failed to set choice index!");
         }
@@ -566,6 +576,10 @@ namespace ShaderLibrary
                 {
                     Name3 = reader.LoadString();
                     Value3 = reader.LoadString();
+                }
+                if (reader.Header.VersionMajor == 9)
+                {
+                    Value1 = reader.LoadString();
                 }
             }
 
@@ -681,7 +695,7 @@ namespace ShaderLibrary
     {
         public ushort Size => header.Size;
         public byte Index => header.Index;
-        public byte Type => header.Type;
+        public BlockType Type => (BlockType)header.Type;
 
         public ResDict<BfshaUniform> Uniforms { get; set; }
 
@@ -706,6 +720,15 @@ namespace ShaderLibrary
 
             reader.SeekBegin(pos);
         }
+
+        public enum BlockType
+        {
+            None,
+            Material,
+            Shape,
+            Option,
+            Num,
+        }
     }
 
     public class BfshaUniform : IResData
@@ -714,6 +737,12 @@ namespace ShaderLibrary
         public int Index { get; set; }
         public ushort DataOffset { get; set; }
         public byte BlockIndex { get; set; }
+
+        //Wii U only
+        public ushort GX2Count { get; set; }
+        public byte GX2Type { get; set; }
+        public byte GX2ParamType { get; set; }
+        //
 
         public void Read(BinaryDataReader reader)
         {
@@ -748,6 +777,11 @@ namespace ShaderLibrary
 
         public byte Index;
 
+        //Wii U only
+        public byte GX2Type { get; set; }
+        public byte GX2Count { get; set; }
+        //
+
         public void Read(BinaryDataReader reader)
         {
             Annotation = reader.LoadString();
@@ -760,6 +794,11 @@ namespace ShaderLibrary
     {
         public byte Index;
         public sbyte Location;
+
+        //Wii U only
+        public byte GX2Type { get; set; }
+        public byte GX2Count { get; set; }
+        //
 
         public void Read(BinaryDataReader reader)
         {
@@ -789,6 +828,10 @@ namespace ShaderLibrary
         internal long _storageBlockTableOfsPos;
 
         public ShaderModel ParentShader { get; internal set; }
+
+        //Wii U only
+        public GX2PixelHeader GX2PixelData;
+        public GX2VertexHeader GX2VertexData;
 
         public bool IsAttributeUsed(int index)
         {
