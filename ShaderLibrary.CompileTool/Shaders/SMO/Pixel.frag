@@ -20,7 +20,15 @@ layout (binding = 2, std140) uniform MdlEnvView
 
 layout (binding = 7, std140) uniform ModelAdditionalInfo 
 {
-    vec4[] data;
+    float model_alpha_mask;
+    float normal_axis_x_scale;
+    vec2 uv_offset;
+    mat4 proj_mtx0;
+    mat4 proj_mtx1;
+    mat4 proj_mtx2;
+    mat4 proj_mtx3;
+    vec4 prog_constant0;
+    vec4 prog_constant1;
 }modelInfo;
 
 layout (binding = 8, std140) uniform HDRTranslate 
@@ -77,20 +85,25 @@ layout (binding = 3, std140) uniform Material
     float sphere_rate_color3;
 
     mat4 mirror_view_proj;
+
     float decal_range;
     float gbuf_fetch_offset;
     float translucence_sharpness;
     float translucence_sharpness_strength;
+
     float translucence_factor;
     float translucence_silhouette_stress;
     float indirect_depth_scale;
     float cloth_nov_peak_pos0;
+
     float cloth_nov_peak_pow0;
     float cloth_nov_peak_intensity0;
     float cloth_nov_tone_pow0;
     float cloth_nov_slope0;
+
     float cloth_nov_emission_scale0;
     vec3 cloth_nov_noise_mask_scale0;
+
     vec4 proc_texture_3d_scale;
 
    // vec4 flow0_param;
@@ -106,9 +119,9 @@ layout (binding = 3, std140) uniform Material
     float material_lod_metalness;
 }mat;
 
-layout (binding = 0) uniform sampler2D cTextureBaseColor; //1
-layout (binding = 1) uniform sampler2D cTextureNormal; //2
-layout (binding = 2) uniform sampler2D cTextureUniform0; //4
+layout (binding = 0) uniform sampler2D cTextureBaseColor; 
+layout (binding = 1) uniform sampler2D cTextureNormal; 
+layout (binding = 2) uniform sampler2D cTextureUniform0;
 layout (binding = 3) uniform sampler2D cTextureUniform1;
 layout (binding = 4) uniform sampler2D cTextureUniform2;
 layout (binding = 5) uniform sampler2D cTextureUniform3;
@@ -132,14 +145,19 @@ layout (location = 8) in vec4 fIrradianceVertex;
 layout (location = 9) in vec2 fSphereCoords;
 
 layout (location = 11) in vec4 fVertexPos; 
+layout (location = 12) in vec4 fPreviousPos;
 
 
 layout (location = 0) out vec4 oLightBuf;
 layout (location = 1) out vec4 oWorldNrm;
 layout (location = 2) out vec4 oNormalizedLinearDepth;
 layout (location = 3) out vec4 oBaseColor;
+layout (location = 4) out vec4 oMotionVec;
 
 #define enable_add_stain_proc_texture_3d false
+#define enable_motion_vec false
+#define enable_clamp_lbuf false
+#define is_use_back_face_lighting false
 
 #define enable_base_color true
 #define enable_base_color_mul_color false
@@ -158,7 +176,8 @@ layout (location = 3) out vec4 oBaseColor;
 #define enable_structural_color false
 
 #define enable_cloth_nov false
-
+#define is_cloth_nov_reverse false
+#define is_cloth_nov_use_rnd_noise_mask false
 
 #define is_apply_irradiance_pixel true
 
@@ -174,6 +193,7 @@ layout (location = 3) out vec4 oBaseColor;
 
 #define emission_type 1
 #define emission_scale_type 7
+#define cloth_nov_emission_scale_type 7
 
 #define VTX_COLOR_TYPE_NONE -1
 #define VTX_COLOR_TYPE_DIFFUSE 0
@@ -194,11 +214,20 @@ layout (location = 3) out vec4 oBaseColor;
 #define o_alpha 116
 #define o_cloth_mask_map 116
 #define o_cloth_map 116
+#define o_cloth_emission_map 115
+
+#define cloth_mask_component 30 //red
 
 #define roughness_component 30 //red
 #define metalness_component 30 //red
 #define emission_component 10 //rgba
 #define alpha_component 60 //alpha
+
+#define RENDER_TYPE_DEFERRED_OPAQUE 0
+#define RENDER_TYPE_DEFERRED_XLU 1
+#define RENDER_TYPE_FORWARD 3 //used for translucent types
+
+#define cRenderType 0
 
 //The UV layer or method to use
 #define FUV_SELECT_UV0 10
@@ -376,7 +405,8 @@ Light SetupLight(vec3 N, vec3 view_pos)
 vec4 EncodeBaseColor(vec3 baseColor, float roughness, float metalness, vec3 normal)
 {
     float encoded = float(uint(int(uint(max(trunc(roughness * 15.0), 0.0))) << 4 | 
-                               int(uint(max(trunc(metalness * 15.0), 0.0))))) * 0.00392156886;
+                               int(uint(max(trunc(metalness * 15.0), 0.0)))) | 
+                               uint(step(0.0, normal.z))) * 0.00392156886;
     return vec4(baseColor, encoded);
 }
 
@@ -398,18 +428,16 @@ vec2 CalcSphereCoords(vec3 n)
 
 vec4 GetComp(vec4 v, int comp_mask)
 {
-    switch (comp_mask)
-    {
-        case 10: return v.rgba;
-        case 30: return v.rrrr;
-        case 40: return v.gggg;
-        case 50: return v.bbbb;
-        case 60: return v.aaaa;
-        case 70:  return clamp(1.0 - v.rrrr, 0.0, 1.0);
-        case 80:  return clamp(1.0 - v.gggg, 0.0, 1.0);
-        case 90:  return clamp(1.0 - v.bbbb, 0.0, 1.0);
-        case 100: return clamp(1.0 - v.aaaa, 0.0, 1.0);
-    }
+    if (comp_mask == 10)       return v.rgba;
+    else if (comp_mask == 30)  return v.rrrr;
+    else if (comp_mask == 40)  return v.gggg;
+    else if (comp_mask == 50)  return v.bbbb;
+    else if (comp_mask == 60)  return v.aaaa;
+    else if (comp_mask == 70)  return clamp(1.0 - v.rrrr, 0.0, 1.0);
+    else if (comp_mask == 80)  return clamp(1.0 - v.gggg, 0.0, 1.0);
+    else if (comp_mask == 90)  return clamp(1.0 - v.bbbb, 0.0, 1.0);
+    else if (comp_mask == 100) return clamp(1.0 - v.aaaa, 0.0, 1.0);
+
     return v.rgba;
 }
 
@@ -435,24 +463,28 @@ vec2 SelectTexCoord(int mtx_select)
 
 float CalulateSphereLight()
 {
-    vec3 view_normal = -normalize(fNormalsDepth.xyz * mat3(mdlEnvView.cView));
+    vec3 vertex_normal = normalize(fNormalsDepth.xyz);
+
+    vec3 view_normal = normalize(vertex_normal.xyz * mat3(mdlEnvView.cView));
     vec3 view_pos = vec3(fViewPos.zw, fLightColorVPosZ.w);
 
     vec3 dir = normalize(view_pos);
 
-    return saturate( dot(view_normal, dir));
+    return clamp(fma(dir.z, -view_normal.z,
+                    fma(dir.x, -view_normal.x, 
+                    dir.y * -view_normal.y)), 0.0, 1.0);
 }
 
 vec4 CalculateSphereConstColor(int sphere_color_type, vec4 const_color, float sphere_rate_color)
 {
     float cosTheta  = CalulateSphereLight();
 
-    if (sphere_color_type == 1)
+    if (sphere_color_type == 1) //inverted fresnel effect
     {
         float amount = clamp(exp2(log2(cosTheta) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
     }
-    else if (sphere_color_type == 2)
+    else if (sphere_color_type == 2) //fresnel effect
     {
         float amount = clamp(exp2(log2(1.0 - cosTheta) * sphere_rate_color), 0.0, 1.0);
         return const_color * amount;
@@ -541,9 +573,30 @@ vec4 CalculateOutput(int flag)
     else if (flag == 113) return vec4(mat.const_single3); //Mat.const_single3
     else if (flag == 115) return vec4(0.0); //constant
     else if (flag == 116) return vec4(1.0); //constant
-    else if (flag == 140) return vec4(0.0); //ModelAdditionalInfo.uv_offset.z TODO
+    else if (flag == 140) return vec4(0.0); //ModelAdditionalInfo.uv_offset TODO
     else if (flag == 160) return vec4(0.0); //proc texture 2d TODO
     else if (flag == 170) return vec4(0.0); //proc texture 3d TODO
+
+    return vec4(0.0);
+}
+
+vec4 CalculateCofBlendOutput(int flag, int cof_map) //Has seperate output which no texture maps used (unless type 20)
+{
+    if (flag == 10)      return fVertexColor;
+    else if (flag == 20) return CalculateOutput(cof_map); //cof_map
+
+    else if (flag == 30) return vec4(mat.const_single0); //Mat.const_single0
+    else if (flag == 31) return vec4(mat.const_single1); //Mat.const_single1
+    else if (flag == 32) return vec4(mat.const_single2); //Mat.const_single2
+    else if (flag == 33) return vec4(mat.const_single3); //Mat.const_single3
+
+    else if (flag == 60) return CALCULATE_CONST_COLOR(0); //Mat.const_color0
+    else if (flag == 61) return CALCULATE_CONST_COLOR(1); //Mat.const_color1
+    else if (flag == 62) return CALCULATE_CONST_COLOR(2); //Mat.const_color2
+    else if (flag == 63) return CALCULATE_CONST_COLOR(3); //Mat.const_color3
+
+    else if (flag == 115) return vec4(0.0); //constant
+    else if (flag == 116) return vec4(1.0); //constant
 
     return vec4(0.0);
 }
@@ -556,7 +609,7 @@ float BlendCompareComponent(float src, float dst, float cof)
     return func + cmp * (-func - dst.x * cof.x * (-n) + cmp);
 }
 
-vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
+vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id, int cof_map,
        int src_ch, int dst_ch, int cof_ch, int ind, int equation)
 {
     if (!enable)
@@ -564,7 +617,7 @@ vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
 
     vec4 src = GetComp(CalculateOutput(src_id), src_ch);
     vec4 dst = GetComp(CalculateOutput(dst_id), dst_ch);
-    vec4 cof = GetComp(CalculateOutput(cof_id), cof_ch);
+    vec4 cof = GetComp(CalculateCofBlendOutput(cof_id, cof_map), cof_ch);
 
     if      (equation == 0) return fma(src - dst, cof, dst);
     else if (equation == 1) return fma(dst, cof, src);
@@ -591,6 +644,7 @@ vec4 CalculateBlend(bool enable, int src_id, int dst_id, int cof_id,
            blend##num##_src,\
            blend##num##_dst, \
            blend##num##_cof, \
+           blend##num##_cof_map, \
            blend##num##_src_ch, \
            blend##num##_dst_ch, \
            blend##num##_cof_ch, \
@@ -682,6 +736,9 @@ vec3 ReconstructNormal(in vec2 t_NormalXY) {
 
 vec3 CalculateNormals(vec3 normals, vec2 normal_map)
 {
+    if (!enable_normal) //use vertex normals
+        return normals;
+
     vec3 N = vec3(normals);
     vec3 T = vec3(fTangents.xyz);
     vec3 B = vec3(fTangents.w, fBitangents.xy);
@@ -699,27 +756,26 @@ vec3 CalculateNormals(vec3 normals, vec2 normal_map)
 vec3 CalculateEmissionScale(vec3 emission, int scale_type, vec4 irradiance)
 {
     //Emission scale
-    if (scale_type == 1) //material light sphere
+    if      (scale_type == 1) //emission * irradiance, max by emission
         emission = max(irradiance.rgb * emission.rgb, emission.rgb);
-    if (scale_type == 2) //material light sphere max 1.0
+    else if (scale_type == 2) //emission * irradiance, max by 1.0
         emission = emission * max(irradiance.rgb, 1.0);
-    if (scale_type == 4) //emission * material light sphere color
+    else if (scale_type == 3) //emission * irradiance color
         emission = emission * irradiance.rgb;
-    if (scale_type == 4) //emission * material light sphere scale
+    else if (scale_type == 4) //emission * irradiance scale
         emission = emission * irradiance.w;
-    if (scale_type == 5) //max sphere light amount
+    else if (scale_type == 5) //max irradiance light amount
     {
         float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
         emission = max_scale * emission;
     }
-    if (scale_type == 6) //max sphere light amount limited by emission amount
+    else if (scale_type == 6) //max irradiance light amount maxed by emission amount
     {
         float max_scale = max(max(irradiance.g, irradiance.b), irradiance.r);
         emission = max(vec3(max_scale) * emission, emission);
     }
-    if (scale_type == 7)
+    else if (scale_type == 7) //exposure scale    
     {   
-        //exposure scale    
         float exposure = texture(cExposureTexture, vec2(0.0, 0.0)).a;
         emission *= 1.0 / exposure * mdlEnvView.Exposure.x;
     }
@@ -741,6 +797,13 @@ vec3 CalculateEmission(vec4 irradiance)
         emission = CalculateEmissionScale(emission, emission_scale_type, irradiance);
     }
     return emission;
+}
+
+vec3 CalculateClothEmission(vec4 irradiance)
+{
+    vec3 emission = CalculateOutput(o_cloth_emission_map).rgb * mat.cloth_nov_emission_scale0;
+    //Emission scale
+    return CalculateEmissionScale(emission, cloth_nov_emission_scale_type, irradiance);
 }
 
 void SetupBlend()
@@ -845,11 +908,15 @@ void main()
     vec4 transparent_tex     = CalculateOutput(o_transparent_tex);
     float alpha      = GetComp(CalculateOutput(o_alpha), alpha_component).w;
 
-    vec3 view_pos = vec3(fViewPos.zw, fLightColorVPosZ.w);
+    vec3 eye_to_pos = vec3(fViewPos.zw, fLightColorVPosZ.w);
+    vec3 dir = normalize(eye_to_pos);
 
     vec3 specularTerm = vec3(0.0);
 
     vec3 light_color = fLightColorVPosZ.xyz;
+
+    //Metalness adjust
+    metalness = saturate(metalness);
 
     //Roughness adjust
     roughness *= mat.force_roughness;
@@ -857,16 +924,16 @@ void main()
 
     //Normals
     vec3 N = CalculateNormals(fNormalsDepth.rgb, normal_map);
+   // N.x *= modelInfo.normal_axis_x_scale; //unsure what this is used for, 2D sections?
+
     vec3 view_normal = normalize(N * mat3(mdlEnvView.cView));
 
     //Lighting
-    Light light = SetupLight(N, view_pos);
+    Light light = SetupLight(N, eye_to_pos);
 
     //Fresnel
     vec3 f0 = mix(vec3(0.04), base_color.rgb, metalness); // dialectric
-    vec3 dir = normalize(view_pos);
 
-    //lower the intensity as current calculations are too strong
     vec3 brdf = CalculateBrdf(view_normal, dir, roughness, f0);
 
     //specular ggx
@@ -889,6 +956,7 @@ void main()
     if (enable_structural_color)
     {
         //todo cTextureCubeMapStructuralColor * light cube when used
+        //never have seen this used yet
     }
 
     if (enable_material_sphere_light)
@@ -910,12 +978,53 @@ void main()
         diffuseTerm.rgb = clamp(mix(diffuseTerm.rgb,  mat.stain_color.rgb, stain_intensity), 0.0, 1.0);
     }
 
+    //irradiance lighting
+    vec4 irradiance = CalculateDiffuseIrradianceLight(light);
+
+    //Cloth typically used for hair strands
+    float cloth_value = 0.0;
+    if (enable_cloth_nov)
+    {
+        //cloth color/output
+        vec4 cloth_map = CalculateOutput(o_cloth_map);
+        //cloth region to affect
+        vec2 cloth_mask = GetComp(CalculateOutput(o_cloth_mask_map), cloth_mask_component).rg;
+
+         float nov = clamp(fma(view_normal.z, -dir.z,
+                     fma(view_normal.x,  -dir.x, 
+                         view_normal.y * -dir.y)), 0.0, 1.0);
+
+
+       // float nov = clamp(-dot(view_normal, dir), 0.0, 1.0);
+        if (is_cloth_nov_reverse)
+            nov = clamp(1.0 - nov, 0.0, 1.0);
+
+        //peak offset
+        float peak_pos = nov - mat.cloth_nov_peak_pos0;
+        //tone and peak
+        float nov_tone = pow(nov, mat.cloth_nov_tone_pow0); 
+        float nov_peak = exp2(peak_pos * 0.0 - peak_pos * mat.cloth_nov_peak_pow0.x * 100.0) * mat.cloth_nov_peak_intensity0; 
+        //cloth output
+        cloth_value = clamp(nov_tone * mat.cloth_nov_slope0 + nov_peak, 0.0, 1.0);
+        //apply mask
+        cloth_value *= clamp(cloth_mask.x + -0.0, 0.0, 1.0);
+
+        //random noise mask
+        if (is_cloth_nov_use_rnd_noise_mask)
+        {
+            float noise = sin(fma(cloth_mask.y * mat.cloth_nov_noise_mask_scale0.y,
+                78.233, cloth_mask.x * mat.cloth_nov_noise_mask_scale0.y * 12.9898005)) * 43758.5469;
+
+            cloth_value = clamp(fma(cloth_value * (noise - floor(noise) + -0.5), 40.0, cloth_value), 0.0, 1.0);
+        }
+        //Apply to diffuse
+        diffuseTerm = mix(diffuseTerm.rgb, cloth_map.rgb, cloth_value);
+    }
+
     //Adjust for metalness.
     diffuseTerm *= saturate(1.0 - metalness);
     diffuseTerm *= vec3(1) - brdf;
 
-    //irradiance lighting
-    vec4 irradiance = CalculateDiffuseIrradianceLight(light);
     diffuseTerm *= irradiance.rgb;
 
     //Ambient occ
@@ -962,18 +1071,16 @@ void main()
 
     //Light output diffuse + specular
     oLightBuf.rgb = diffuseTerm.rgb + specularTerm;
+    oLightBuf.a = alpha; 
+
+    //Cloth Emission
+    if (enable_cloth_nov)
+        oLightBuf.rgb += CalculateClothEmission(irradiance) * cloth_value;
 
     //Emission
     if (enable_emission)
         oLightBuf.rgb += CalculateEmission(irradiance).rgb;
 
-    //TODO cloth typically used for hair strand lighting
-    if (enable_cloth_nov)
-    {
-        vec4 cloth_mask = CalculateOutput(o_cloth_mask_map);
-        vec4 cloth_map = CalculateOutput(o_cloth_map);
-
-    }
     //metal flake emission here
 
     //Sub surface scattering
@@ -988,26 +1095,60 @@ void main()
         oLightBuf.rgb = oLightBuf.rgb;
     }
 
+    vec2 motion_vector = vec2(0.0);
+
+    if (cRenderType == RENDER_TYPE_DEFERRED_OPAQUE) 
+    {
+        //motion vector using the previous position differences
+        //Unsure what these are used for?
+        if (enable_motion_vec)
+        {
+            vec3 posInvProj = vec3(fBitangents.zw, fPreviousPos.w);
+            vec3 prevPos = fPreviousPos.xyz;
+
+            float invPosZ  = 1.0 / posInvProj.z;
+            float invPrevZ = 1.0 / prevPos.z;
+
+            motion_vector.x = (invPosZ * posInvProj.y) - (prevPos.y * invPrevZ) * 0.25;
+            motion_vector.y = (invPosZ * posInvProj.x) - (prevPos.x * invPrevZ) * 0.25;
+        }
+    }
+    else if (cRenderType == RENDER_TYPE_DEFERRED_XLU) 
+    {
+        if (enable_clamp_lbuf) //only seems to be used here in this render type for some reason
+            oLightBuf.rgb = clamp(oLightBuf.rgb, 0.0, 1.0);
+        //xlu alpha output
+        oLightBuf.a = alpha * modelInfo.model_alpha_mask; 
+    }
+    else if (cRenderType == RENDER_TYPE_FORWARD) 
+    {
+    }
+
     //clamp 0 - 2048 due to HDR/tone mapping
-    oLightBuf.rgb = max(oLightBuf.rgb, 0.0);
+    oLightBuf.rgb = max(oLightBuf.rgb, 0.0);    
     oLightBuf.rgb = min(oLightBuf.rgb, 2048.0);
 
-   // vec4 spec = DecodeCubemap(cTextureMaterialLightCube, light.R, roughness * 5);
-  //  oLightBuf.rgb = max(spec.rgb, 0.0); //reflect test
-  //  oLightBuf.rgb = brdf; //brdf test
-    //oLightBuf.rgb = vec3(light_intensity); //brdf test
-
-  
-
-    //Normals output
+    //Normals output as half lambert
     oWorldNrm.rg = N.rg * 0.5 + 0.5;
 
-    oNormalizedLinearDepth.r = fNormalsDepth.w * gl_FragCoord.w * (1.0 / gl_FragCoord.w);
+    //Depth output used for computing the deferred shader
+    oNormalizedLinearDepth.r = fNormalsDepth.w;
     oNormalizedLinearDepth.y = 0.0;
     oNormalizedLinearDepth.z = 0.0;
     oNormalizedLinearDepth.w = 0.0;
 
-    //if cRenderType == 0
+    //Base color with encoded roughness/metalness to compute extra deferred calculations
     oBaseColor = EncodeBaseColor(saturate(base_color.rgb), roughness, metalness, N);
+
+    //Motion vector
+    if (enable_motion_vec)
+        oMotionVec.xy = motion_vector.xy;
+
+    //Forward render output
+    if (cRenderType == RENDER_TYPE_FORWARD)
+    {
+        oBaseColor.rgb = saturate(base_color.rgb);
+        oBaseColor.a = alpha; 
+    }
     return;
 }

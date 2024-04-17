@@ -4,8 +4,9 @@
 #define SKIN_COUNT 4
 
 #define is_apply_irradiance_pixel true
-
 #define enable_add_stain_proc_texture_3d false
+#define enable_motion_vec false
+#define enable_material_light true
 
 //The uv transform method to use. 
 //0 = none 1 = tex_mtx0, 2 = tex_mtx1, 3 = tex_mtx2, 4 = tex_mtx3
@@ -27,7 +28,31 @@
 #define enable_blend_tangent false
 #define o_normal         20
 
+#define enable_displacement false
+#define enable_displacement1 false
+#define displacement_component 10
+#define displacement1_component 10
+#define displacement_fuv_selector 10
+#define displacement1_fuv_selector 10
+#define displacement_mul_vtx_color 0
+#define displacement1_mul_vtx_color 0
+#define displacement_mul_vtx_alpha 0
+#define displacement1_mul_vtx_alpha 0
+
+#define FUV_SELECT_UV0 10
+
+#define base_color_fuv_selector   FUV_SELECT_UV0
+#define normal_fuv_selector       FUV_SELECT_UV0
+#define uniform0_fuv_selector     FUV_SELECT_UV0
+#define uniform1_fuv_selector     FUV_SELECT_UV0
+#define uniform2_fuv_selector     FUV_SELECT_UV0
+#define uniform3_fuv_selector     FUV_SELECT_UV0
+#define uniform4_fuv_selector     FUV_SELECT_UV0
+
+layout (binding = 6) uniform samplerCube cTexCubeMapRoughness;
 layout (binding = 9) uniform samplerCube cTextureMaterialLightCube;
+layout (binding = 14) uniform sampler2D cTextureDisplacement0;
+layout (binding = 16) uniform sampler2D cTextureDisplacement1;
 layout (binding = 15) uniform sampler2D cDirectionalLightColor;
 
 const int MAX_BONE_COUNT = 100;
@@ -42,6 +67,19 @@ layout (binding = 8, std140) uniform HDRTranslate
     float Power;
     float Range;
 }hdr;
+
+layout (binding = 7, std140) uniform ModelAdditionalInfo 
+{
+    float model_alpha_mask;
+    float normal_axis_x_scale;
+    vec2 uv_offset;
+    mat4 proj_mtx0;
+    mat4 proj_mtx1;
+    mat4 proj_mtx2;
+    mat4 proj_mtx3;
+    vec4 prog_constant0;
+    vec4 prog_constant1;
+}modelInfo;
 
 layout (binding = 5, std140) uniform _Shp
 {
@@ -165,6 +203,7 @@ layout (location = 7) out vec4 fTexCoords23;
 layout (location = 8) out vec4 fIrradianceVertex;
 layout (location = 9) out vec2 fSphereCoords;
 layout (location = 10) out vec4 fVertexPos; //todo loc 5 when used
+layout (location = 11) out vec4 fPreviousPos; //todo loc 3 when used
 
 
 vec4 skin(vec3 pos, ivec4 index)
@@ -260,7 +299,58 @@ vec4 DecodeCubemap(samplerCube cube, vec3 n, float lod)
     float scale = pow(tex.a, hdr.Power) * hdr.Range;
     return vec4(tex.rgb * scale, scale);
 }
- 
+
+vec2 SelectDisplacementTexCoord(int mtx_select, vec3 position)
+{
+    if (mtx_select == 10)  //tex coord 0
+        return fTexCoords01.xy;
+    else if  (mtx_select == 11) //tex coord 1
+        return fTexCoords01.zy;
+    else if  (mtx_select == 12) //tex coord 2
+        return fTexCoords23.xy;
+    else if  (mtx_select == 13) //tex coord 3
+        return fTexCoords23.zw;
+    else if  (mtx_select == 14) //proj coordinates with y pos
+    {
+        vec2 proj_pos = (vec4(position, 1.0) * modelInfo.proj_mtx0).xy;
+        return proj_pos; //todo confirm if this is right
+    }
+
+    return fTexCoords01.xy;
+}
+
+vec3 CalculateDisplacement0(vec3 position, vec3 normals)
+{
+    vec3 tex = textureLod(cTextureDisplacement0, (SelectDisplacementTexCoord(displacement_fuv_selector, position)), 0.0).xyz;
+
+    vec3 displacement = tex.rgb * mat.displacement_scale * mat.displacement_color.rgb;
+    if (displacement_component == 30) //By normals
+         displacement = normals.xyz * tex.x * mat.displacement_scale * mat.displacement_color.rgb;
+
+    if (displacement_mul_vtx_color == 1) //Multiply vertex colors
+        displacement *= vColor.rgb;
+    if (displacement_mul_vtx_alpha == 1) //Multiply vertex alpha
+        displacement *= vColor.a;
+
+    return position;
+}
+
+vec3 CalculateDisplacement1(vec3 position, vec3 normals)
+{
+    vec3 tex = textureLod(cTextureDisplacement1, (SelectDisplacementTexCoord(displacement1_fuv_selector, position)), 0.0).xyz;
+
+    vec3 displacement = tex.rgb * mat.displacement1_scale * mat.displacement1_color.rgb;
+    if (displacement1_component == 30) //By normals
+         displacement = fNormalsDepth.xyz * tex.x * mat.displacement1_scale * mat.displacement1_color.rgb;
+
+    if (displacement1_mul_vtx_color == 1) //Multiply vertex colors
+        displacement *= fVertexColor.rgb;
+    if (displacement1_mul_vtx_alpha == 1) //Multiply vertex alpha
+        displacement *= fVertexColor.a;
+
+    return position;
+}
+
 void main()
 {   
     ivec4 bone_index = vBoneIndices;
@@ -268,10 +358,15 @@ void main()
     //position
     vec4 position = skin(vPosition.xyz, bone_index);
 
-    gl_Position = vec4(position.xyz, 1.0) * mdlEnvView.cViewProj;
-
     //normals
     fNormalsDepth = vec4(skinNormal(vNormal.xyz, bone_index).xyz, 1.0);
+
+    if (enable_displacement)
+        position.xyz = CalculateDisplacement0(position.xyz, fNormalsDepth.xyz);
+    if (enable_displacement1)
+        position.xyz = CalculateDisplacement1(position.xyz, fNormalsDepth.xyz);
+
+    gl_Position = vec4(position.xyz, 1.0) * mdlEnvView.cViewProj;
 
     float linear_depth = (gl_Position.w - mdlEnvView.ZNearFar.x) * mdlEnvView.ZNearFar.w;
     fNormalsDepth.w = linear_depth;
@@ -318,16 +413,49 @@ void main()
 
     if (!is_apply_irradiance_pixel)
     {
-        const float MAX_LOD = 5.0;
-        vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, fNormalsDepth.xyz, MAX_LOD);
-        irradiance_cubemap.rgb *= mdlEnvView.Exposure.y;
-
-        fIrradianceVertex = irradiance_cubemap;
+        if (enable_material_light) //use material light cubemap
+        {
+            const float MAX_LOD = 5.0;
+            vec4 irradiance_cubemap = DecodeCubemap(cTextureMaterialLightCube, fNormalsDepth.xyz, MAX_LOD);
+            fIrradianceVertex = irradiance_cubemap *= mdlEnvView.Exposure.y;
+        }
+        else //use material roughness cubemap
+        {
+            const float MAX_LOD = 5.0;
+            vec4 irradiance_cubemap = DecodeCubemap(cTexCubeMapRoughness, fNormalsDepth.xyz, MAX_LOD);
+            fIrradianceVertex.rgba = irradiance_cubemap.rgba * mdlEnvView.Exposure.y;
+        }
     }
 
     if (enable_add_stain_proc_texture_3d)
     {
         fVertexPos.xyz = vPosition.xyz;
+    }
+
+    if (enable_motion_vec)
+    {
+        vec3 invProjPos = (vec4(position.xyz, 1.0) * mat4(mdlEnvView.cViewProjInv)).xyz;
+        fBitangents.z = invProjPos.x;
+        fBitangents.y = invProjPos.y;
+        fPreviousPos.w = invProjPos.z;
+
+        //vPosition * previous mtx pos * previous view proj TODO
+        fPreviousPos.x = 0;
+        fPreviousPos.y = 0;
+        fPreviousPos.z = 0;
+    }
+
+    //Check if any proj textures are used
+    if (uniform0_fuv_selector == 50 || uniform1_fuv_selector == 50 || uniform2_fuv_selector == 50 ||
+        uniform3_fuv_selector == 50 || base_color_fuv_selector == 50 || normal_fuv_selector == 50||
+        uniform4_fuv_selector == 50)
+    {
+        //TODO mtx0 -> mtx2 (sets 3 attributes)
+        vec2 proj_pos0 = (vec4(position.xyz, 1.0) * modelInfo.proj_mtx0).xy;
+        vec2 proj_pos1 = (vec4(position.xyz, 1.0) * modelInfo.proj_mtx1).xy;
+        vec2 proj_pos2 = (vec4(position.xyz, 1.0) * modelInfo.proj_mtx2).xy;
+        vec2 proj_pos3 = (vec4(position.xyz, 1.0) * modelInfo.proj_mtx3).xy;
+
     }
 
     //Sphere mapping 
