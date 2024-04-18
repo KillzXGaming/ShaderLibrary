@@ -924,7 +924,7 @@ void main()
 
     //Normals
     vec3 N = CalculateNormals(fNormalsDepth.rgb, normal_map);
-   // N.x *= modelInfo.normal_axis_x_scale; //unsure what this is used for, 2D sections?
+    N.x *= modelInfo.normal_axis_x_scale; //unsure what this is used for, 2D sections?
 
     vec3 view_normal = normalize(N * mat3(mdlEnvView.cView));
 
@@ -978,9 +978,6 @@ void main()
         diffuseTerm.rgb = clamp(mix(diffuseTerm.rgb,  mat.stain_color.rgb, stain_intensity), 0.0, 1.0);
     }
 
-    //irradiance lighting
-    vec4 irradiance = CalculateDiffuseIrradianceLight(light);
-
     //Cloth typically used for hair strands
     float cloth_value = 0.0;
     if (enable_cloth_nov)
@@ -1020,6 +1017,9 @@ void main()
         //Apply to diffuse
         diffuseTerm = mix(diffuseTerm.rgb, cloth_map.rgb, cloth_value);
     }
+
+    //irradiance lighting
+    vec4 irradiance = CalculateDiffuseIrradianceLight(light);
 
     //Adjust for metalness.
     diffuseTerm *= saturate(1.0 - metalness);
@@ -1122,6 +1122,7 @@ void main()
     }
     else if (cRenderType == RENDER_TYPE_FORWARD) 
     {
+        oLightBuf.a = alpha * modelInfo.model_alpha_mask; 
     }
 
     //clamp 0 - 2048 due to HDR/tone mapping
