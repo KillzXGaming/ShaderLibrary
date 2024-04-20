@@ -934,6 +934,22 @@ vec3 CalculateClothEmission(vec4 irradiance)
     return CalculateEmissionScale(emission, cloth_nov_emission_scale_type, irradiance);
 }
 
+vec3 CalculateMetalFlakeEmission(float refract_bias_x, float refract_bias_y, vec4 irradiance)
+{
+    //transparent tex with refract bias
+    float transparent_tex = GetTransparentTexOutput(o_transparent_tex, refract_bias_x, refract_bias_y).r;
+    //metal flake power
+    float metal_flake_power = GetComp(CalculateOutput(o_metal_flake_power), metal_flake_power_component).x;
+
+    float v = metal_flake_power * log2(CalulateSphereLight());
+    vec3 emission_flake = vec3(transparent_tex * exp2(v));
+
+    emission_flake = CalculateEmissionScale(emission_flake, metal_flake_emission_scale_type, irradiance );
+        
+    vec3 refract_color = CalculateOutput(o_refract_color).rgb;
+    return refract_color * emission_flake;
+}
+
 void SetupBlend()
 {
 
@@ -1304,20 +1320,7 @@ void main()
 
     //metal flake emission here
     if (has_transparent_tex && transparent_tex_type == TRANS_TEX_TYPE_METAL_FLAKE)
-    {
-        //transparent tex with refract bias
-        float transparent_tex = GetTransparentTexOutput(o_transparent_tex, refract_bias_x, refract_bias_y).r;
-        //metal flake power
-        float metal_flake_power = GetComp(CalculateOutput(o_metal_flake_power), metal_flake_power_component).x;
-
-        float v = metal_flake_power * log2(CalulateSphereLight());
-        vec3 emission_flake = vec3(transparent_tex * exp2(v));
-
-        emission_flake = CalculateEmissionScale(emission_flake, metal_flake_emission_scale_type, irradiance );
-        
-        vec3 refract_color = CalculateOutput(o_refract_color).rgb;
-        oLightBuf.rgb += refract_color * emission_flake;
-    }
+        oLightBuf.rgb += CalculateMetalFlakeEmission(refract_bias_x, refract_bias_y, irradiance);
 
     //Sub surface scattering
     if (enable_sss)
