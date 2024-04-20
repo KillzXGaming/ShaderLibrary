@@ -422,6 +422,13 @@ float saturate(float v)
     return clamp(v, 0.0, 1.0);
 }
 
+vec2 GetScreenCoordinates()
+{
+	vec2 screenCoord = fPerspDiv.xy * 0.5 + 0.5;
+    screenCoord.y = 1.0 - screenCoord.y;
+    return screenCoord;
+}
+
 struct Light
 {
     vec3 I; //eye
@@ -661,12 +668,12 @@ vec4 CalculateOutput(int flag)
     else if (flag == 61) return CALCULATE_CONST_COLOR(1); //sphere rate 1
     else if (flag == 62) return CALCULATE_CONST_COLOR(2); //sphere rate 2
     else if (flag == 63) return CALCULATE_CONST_COLOR(3); //sphere rate 3
-    else if (flag == 70) return vec4(0.0); //cFrameBufferTex TODO
+    else if (flag == 70) return texture(cFrameBufferTex, GetScreenCoordinates());
     else if (flag == 71) return vec4(0.0); //cGBufferBaseColorTex TODO
     else if (flag == 72) return vec4(0.0); //cGBufferNormalTex TODO
     else if (flag == 73) return vec4(0.0); //gbuffer decode from base color TODO
     else if (flag == 74) return vec4(0.0); //gbuffer decode from base color TODO
-    else if (flag == 78) return vec4(0.0); //linear depth TODO
+    else if (flag == 78) return texture(cTextureLinearDepth, GetScreenCoordinates()); //linear depth TODO
 
     else if (flag == 80) return BLEND0_OUTPUT; //blend 0
     else if (flag == 81) return BLEND1_OUTPUT; //blend 1
@@ -796,7 +803,7 @@ void CalculateIndirectCoordinates()
     {   
         vec2 tex_coord_target = SelectTexCoord(indirect0_tgt_uv);
         vec2 ind_map = CalculateOutput(indirect0_src_map).xy;
-        vec2 ind_offset = (ind_map + vec2(-0.5)) *  mat.indirect0_scale;
+        vec2 ind_offset = (ind_map - 0.5) *  mat.indirect0_scale;
 
         fIndirectCoords.xy = tex_coord_target + ind_offset;
     }
@@ -804,7 +811,7 @@ void CalculateIndirectCoordinates()
     {
         vec2 tex_coord_target = SelectTexCoord(indirect1_tgt_uv);
         vec2 ind_map = CalculateOutput(indirect1_src_map).xy;
-        vec2 ind_offset = (ind_map + vec2(-0.5)) *  mat.indirect1_scale;
+        vec2 ind_offset = (ind_map - 0.5) *  mat.indirect1_scale;
 
         fIndirectCoords.zw = tex_coord_target + ind_offset;
     }
@@ -1014,13 +1021,6 @@ vec3 CalculateBrdf(vec3 view_normal, vec3 dir, float roughness, vec3 f0)
         (fma(a2, fma(a2, 2.661, -3.603), nv * 1.404) + 1.699)) + 0.6045, 0.0, 1.0) - s;
 
     return f0.rgb * b + s * saturate(f0.g * 50.0);
-}
-
-vec2 GetScreenCoordinates()
-{
-	vec2 screenCoord = fPerspDiv.xy * 0.5 + 0.5;
-    screenCoord.y = 1.0 - screenCoord.y;
-    return screenCoord;
 }
 
 void main()
