@@ -202,8 +202,9 @@ layout (location = 6) out vec4 fVertexColor;
 layout (location = 7) out vec4 fTexCoords23;
 layout (location = 8) out vec4 fIrradianceVertex;
 layout (location = 9) out vec2 fSphereCoords;
-layout (location = 10) out vec4 fVertexPos; //todo loc 5 when used
-layout (location = 11) out vec4 fPreviousPos; //todo loc 3 when used
+layout (location = 11) out vec4 fVertexPos; //todo loc 5 when used
+layout (location = 12) out vec4 fPreviousPos; //todo loc 3 when used
+layout (location = 13) out noperspective vec4 fPerspDiv;
 
 
 vec4 skin(vec3 pos, ivec4 index)
@@ -252,11 +253,11 @@ vec2 CalcScaleBias(in vec2 t_Pos, in vec4 t_SB) {
     return t_Pos.xy * t_SB.xy + t_SB.zw;
 }
 
-vec2 calc_texcoord_matrix(mat2x4 mat, vec2 tex_coord)
+vec2 calc_texcoord_matrix(mat2x4 mtx, vec2 tex_coord)
 {
     //actually a 2x3 matrix stored in 2x4
-    vec3 r0 = vec3(mat[0].xyz);
-    vec3 r1 = vec3(mat[0].w, mat[1].xy);
+    vec3 r0 = vec3(mtx[0].xyz); 
+    vec3 r1 = vec3(mtx[0].w, mtx[1].xy);
 
     return (tex_coord * mat3x2(r0, r1)).xy;
 }
@@ -461,7 +462,9 @@ void main()
     //Sphere mapping 
 	vec3 view_n = (normalize(fNormalsDepth.xyz) * mat3(mdlEnvView.cView)).xyz;
 	//center the uvs
-	fSphereCoords = view_n.xy * vec2(0.5) + vec2(0.5,0.5);
+	fSphereCoords.xy = view_n.xy * vec2(0.5) + vec2(0.5,0.5);
+
+    fPerspDiv.xy =  gl_Position.xy / gl_Position.w; //the game seems to center/shift this in frag shader
 
     return;
 }
