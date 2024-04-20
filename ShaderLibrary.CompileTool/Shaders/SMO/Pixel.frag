@@ -787,26 +787,26 @@ void TryCalculateReferencedBlend(int flag)
 #define CHECK_CALC_BLEND_REFS(num) \
     TryCalculateReferencedBlend(blend##num##_src);\
     TryCalculateReferencedBlend(blend##num##_dst);\
-    TryCalculateReferencedBlend(blend##num##_cof);\
+    TryCalculateReferencedBlend(blend##num##_cof_map);\
 
 void CalculateIndirectCoordinates()
 {
     ///TODO this is slightly incorrect. Figure out how to apply indirect#_tgt_uv
     if (enable_indirect0)
     {   
-        vec2 tex_coords = SelectTexCoord(indirect0_tgt_uv);
+        vec2 tex_coord_bias = SelectTexCoord(indirect0_tgt_uv);
         vec2 ind_map = CalculateOutput(indirect0_src_map).xy;
-        vec2 ind_offset = (ind_map - vec2(-0.5)) *  mat.indirect0_scale;
+        vec2 ind_offset = (ind_map + vec2(-0.5)) *  mat.indirect0_scale;
 
-        fIndirectCoords.xy = ind_offset;
+        fIndirectCoords.xy = ind_offset + tex_coord_bias;
     }
     if (enable_indirect1)
     {
-        vec2 tex_coords = SelectTexCoord(indirect1_tgt_uv);
+        vec2 tex_coord_bias = SelectTexCoord(indirect1_tgt_uv);
         vec2 ind_map = CalculateOutput(indirect1_src_map).xy;
-        vec2 ind_offset = (ind_map - vec2(-0.5)) *  mat.indirect1_scale;
+        vec2 ind_offset = (ind_map + vec2(-0.5)) *  mat.indirect1_scale;
 
-        fIndirectCoords.zw = ind_offset;
+        fIndirectCoords.zw = ind_offset + tex_coord_bias;
     }
 }
 
@@ -929,6 +929,7 @@ vec3 CalculateClothEmission(vec4 irradiance)
 
 void SetupBlend()
 {
+
     //Calc blending. Compute any references first
     CHECK_CALC_BLEND_REFS(0);
     BLEND0_OUTPUT = CALCULATE_BLEND(0);
@@ -1389,7 +1390,7 @@ void main()
 
     if (DEBUG_VISUALIZER)
     {
-        int type = DEBUG_TYPE;
+        int type = int(mat.const_single3);
 
         if (type == -1) oLightBuf.rgb = base_color.rgb;    
         if (type == 1) oLightBuf.rgb = N.rgb * 0.5 + 0.5; 
