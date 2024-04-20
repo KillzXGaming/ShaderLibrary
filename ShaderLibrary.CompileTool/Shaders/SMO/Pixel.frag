@@ -794,19 +794,19 @@ void CalculateIndirectCoordinates()
     ///TODO this is slightly incorrect. Figure out how to apply indirect#_tgt_uv
     if (enable_indirect0)
     {   
-        vec2 tex_coord_bias = SelectTexCoord(indirect0_tgt_uv);
+        vec2 tex_coord_target = SelectTexCoord(indirect0_tgt_uv);
         vec2 ind_map = CalculateOutput(indirect0_src_map).xy;
         vec2 ind_offset = (ind_map + vec2(-0.5)) *  mat.indirect0_scale;
 
-        fIndirectCoords.xy = ind_offset + tex_coord_bias;
+        fIndirectCoords.xy = tex_coord_target + ind_offset;
     }
     if (enable_indirect1)
     {
-        vec2 tex_coord_bias = SelectTexCoord(indirect1_tgt_uv);
+        vec2 tex_coord_target = SelectTexCoord(indirect1_tgt_uv);
         vec2 ind_map = CalculateOutput(indirect1_src_map).xy;
         vec2 ind_offset = (ind_map + vec2(-0.5)) *  mat.indirect1_scale;
 
-        fIndirectCoords.zw = ind_offset + tex_coord_bias;
+        fIndirectCoords.zw = tex_coord_target + ind_offset;
     }
 }
 
