@@ -1241,10 +1241,8 @@ void main()
                 //depth type 
                 if (transparent_type == TRANS_TYPE_IND_FBO_DEPTH)
                 {
-                    //Depth coords are refracted, with fbo coords being normal
-                    bool within_depth = texture(cTextureLinearDepth, coords).x < fNormalsDepth.w;
-                    //Coords within don't use refraction
-                    if (within_depth) 
+                    //Only refract coords behind the current pixel, else keep coordinates normal
+                    if (texture(cTextureLinearDepth, coords).x < fNormalsDepth.w) 
                         coords = GetScreenCoordinates();
                 }
                 vec4 fbo = texture(cFrameBufferTex, coords);
