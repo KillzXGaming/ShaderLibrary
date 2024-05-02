@@ -46,7 +46,7 @@ namespace ShaderLibrary.CompileTool
 
             byte[] shader = FixHeader(File.ReadAllBytes("out.raw"));
 
-            control.SetConstants(shader, constants, out byte[] shader_updated);
+            control.SetConstants(shader, new byte[0], out byte[] shader_updated);
 
             var mem = new MemoryStream();
             control.Save(mem);
@@ -82,6 +82,19 @@ namespace ShaderLibrary.CompileTool
             }
             return mem.ToArray();
         }
+
+        static void AlignBytes(BinaryWriter wr, int align, byte pad_val = 0)
+        {
+            var startPos = wr.BaseStream.Position;
+            long position = wr.Seek((int)(-wr.BaseStream.Position % align + align) % align, SeekOrigin.Current);
+
+            wr.Seek((int)startPos, System.IO.SeekOrigin.Begin);
+            while (wr.BaseStream.Position != position)
+            {
+                wr.Write((byte)pad_val);
+            }
+        }
+
 
         static bool ExecuteCommand(string Command)
         {
@@ -132,7 +145,7 @@ namespace ShaderLibrary.CompileTool
                         if (macros.ContainsKey(macroName))
                         {
                             value = string.Format("#define {0} {1}", macroName, macros[macroName]);
-                            Console.WriteLine($"macro {value}");
+                          //  Console.WriteLine($"macro {value}");
                         }
                     }
                     writer.WriteLine(value);

@@ -77,11 +77,18 @@ namespace ShaderLibrary.CompileTool
             constants_start = reader.ReadUInt32();
             constants_end = reader.ReadUInt32();
 
+            if (constants_len != 0)
+            {
+                //Console.WriteLine($"total {constants_end} aligned {GetAlignPos((int)bytecode_len + 48 + (int)constants_len, 256)} og {constants_end - bytecode_len - 48 - constants_len}");
+            }
+
             for (int i = 0; i < 50; i++)
                 Unknowns[i] = reader.ReadUInt32();
 
             val_0x2000 = reader.ReadByte();
         }
+
+
 
         public void Save(string filePath)
         {
@@ -162,14 +169,11 @@ namespace ShaderLibrary.CompileTool
             {
                 //shader code
                 writer.Write(shader_code);
-                writer.Write(new byte[128]);
+                AlignBytes(writer, 256);
 
                 //constants (don't write atm, buggy alignment issues)
                 this.constants_start = (uint)writer.BaseStream.Position;
-               // writer.Write(constants);
                 this.constants_end = (uint)writer.BaseStream.Position;
-
-                AlignBytes(writer, 4096);
             }
             //save output
             new_shader_code = mem.ToArray();
@@ -187,5 +191,9 @@ namespace ShaderLibrary.CompileTool
             }
         }
 
+        static int GetAlignPos(int startPos, int align)
+        {
+            return (-startPos % align + align) % align;
+        }
     }
 }
