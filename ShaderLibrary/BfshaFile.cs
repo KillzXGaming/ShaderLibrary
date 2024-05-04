@@ -619,8 +619,8 @@ namespace ShaderLibrary
             }
             else
             {
-                BlockOffset = reader.ReadUInt16(); // Uniform block offset.
                 DefaultChoiceIdx = reader.ReadByte();
+                BlockOffset = reader.ReadUInt16(); // Uniform block offset.
                 KeyOffset = reader.ReadByte();
                 Bit32Index = reader.ReadByte();
                 Bit32Shift = reader.ReadByte();
