@@ -161,7 +161,7 @@ namespace ShaderLibrary.CompileTool
         public void SetConstants(byte[] shader_code, byte[] constants, out byte[] new_shader_code)
         {
             this.constants_len = (uint)constants.Length; //constants size
-            this.bytecode_len = (uint)shader_code.Length - 48;  //shader code without the header
+            this.bytecode_len = GetBytecodeLength(shader_code);  //shader code without the header
 
             //save to output shader bytecode
             var mem = new MemoryStream();
@@ -169,14 +169,43 @@ namespace ShaderLibrary.CompileTool
             {
                 //shader code
                 writer.Write(shader_code);
+
                 AlignBytes(writer, 256);
 
                 //constants (don't write atm, buggy alignment issues)
                 this.constants_start = (uint)writer.BaseStream.Position;
+
+                if (constants.Length > 0)
+                {
+                    writer.Write(constants);
+                    AlignBytes(writer, 256);
+                }
+
                 this.constants_end = (uint)writer.BaseStream.Position;
             }
+
             //save output
             new_shader_code = mem.ToArray();
+        }
+
+        private uint GetBytecodeLength(byte[] code)
+        {
+            using (var reader = new BinaryReader(new MemoryStream(code)))
+            {
+                reader.ReadBytes(48); //start
+                reader.ReadBytes(0x50); //nvn header
+                //byte code here
+                int bytecode_size = 0;
+                while (reader.BaseStream.Position < reader.BaseStream.Length)
+                {
+                    ulong cmd = reader.ReadUInt64();
+                    if (cmd == 0)
+                        break;
+
+                    bytecode_size += 8;
+                }
+                return (uint)bytecode_size + 0x50;
+            }
         }
 
         static void AlignBytes(BinaryWriter wr, int align, byte pad_val = 0)

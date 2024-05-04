@@ -29,6 +29,7 @@ namespace ShaderLibrary.CompileTool
 
             //load the original control shader
             var control = new ControlShader(binary.ControlCode);
+            
             //Get the original constants
             var constants = control.GetConstants(binary.ByteCode);
 
@@ -46,12 +47,10 @@ namespace ShaderLibrary.CompileTool
 
             byte[] shader = FixHeader(File.ReadAllBytes("out.raw"));
 
-            control.SetConstants(shader, new byte[0], out byte[] shader_updated);
+            control.SetConstants(shader, constants, out byte[] shader_updated);
 
             var mem = new MemoryStream();
             control.Save(mem);
-
-            Console.WriteLine($"{binary.ByteCode.Length} {shader_updated.Length}");
 
             binary.ByteCode = shader_updated.ToArray();
             binary.ControlCode = mem.ToArray();
@@ -77,24 +76,11 @@ namespace ShaderLibrary.CompileTool
                 writer.Write(305419896);
                 writer.Write(new byte[44]);
 
-                //raw byte code
+                //raw byte code + 0x50 header + alignment
                 writer.Write(byte_code);
             }
             return mem.ToArray();
         }
-
-        static void AlignBytes(BinaryWriter wr, int align, byte pad_val = 0)
-        {
-            var startPos = wr.BaseStream.Position;
-            long position = wr.Seek((int)(-wr.BaseStream.Position % align + align) % align, SeekOrigin.Current);
-
-            wr.Seek((int)startPos, System.IO.SeekOrigin.Begin);
-            while (wr.BaseStream.Position != position)
-            {
-                wr.Write((byte)pad_val);
-            }
-        }
-
 
         static bool ExecuteCommand(string Command)
         {
@@ -144,6 +130,15 @@ namespace ShaderLibrary.CompileTool
                         var macroName = line.Split()[1];
                         if (macros.ContainsKey(macroName))
                         {
+                            var macroValue = line.Split()[2];
+                            bool isBool = macroValue.Contains("true") || macroValue.Contains("false");
+
+                            if (isBool)
+                            {
+                                if (macros[macroName] == "1") macros[macroName] = "true";
+                                if (macros[macroName] == "0") macros[macroName] = "false";
+                            }
+
                             value = string.Format("#define {0} {1}", macroName, macros[macroName]);
                           //  Console.WriteLine($"macro {value}");
                         }
