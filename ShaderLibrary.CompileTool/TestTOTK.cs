@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using BfresLibrary;
 using EffectLibraryTest;
 using ShaderLibrary;
+using ShaderLibrary.Test;
 
 namespace ShaderLibrary.CompileTool
 {
@@ -39,6 +40,7 @@ namespace ShaderLibrary.CompileTool
 
             bfsha.Save($"{shader_path}.NEW.bfsha");
         }
+
 
         public static void Run(string bfres_path, string mesh_name, string shader_path)
         {
@@ -75,13 +77,28 @@ namespace ShaderLibrary.CompileTool
 
             string vertex_shader = File.ReadAllText("Shader/TOTK/Vertex.vert");
             string vertex_forward_shader = File.ReadAllText("Shader/TOTK/VertexForward.vert");
-            string frag_shader = File.ReadAllText("Shader/TOTK/Pixel.frag");
 
-            UAMShaderCompiler.CompileByText(program_gbuffer.Item2.VertexShader, vertex_shader, "vert", macros);
-            UAMShaderCompiler.CompileByText(program_depth.Item2.VertexShader, vertex_shader, "vert", macros);
-            UAMShaderCompiler.CompileByText(program_mat.Item2.VertexShader, vertex_forward_shader, "vert", macros);
+            GlslcCompilerTool glslc = new GlslcCompilerTool();
 
-            UAMShaderCompiler.CompileByText(program_gbuffer.Item2.FragmentShader, frag_shader, "frag", macros);
+            glslc.AddShaderEditVertexOnly(program_gbuffer.Item2.VertexShader, vertex_shader, macros);
+            glslc.AddShaderEditVertexOnly(program_mat.Item2.VertexShader, vertex_forward_shader, macros);
+            glslc.AddShaderEditVertexOnly(program_depth.Item2.VertexShader,  vertex_shader, macros);
+
+            void SetDynamicShader(int num)
+            {
+                var program_dynamic = GetShaderProgram(bfsha, resFile, mesh_name, $"gsys_assign_dynamic{num}");
+                if (program_dynamic == null)
+                    return;
+
+                glslc.AddShaderEditVertexOnly(program_dynamic.Item2.VertexShader, vertex_shader, macros);
+            }
+
+            SetDynamicShader(0);
+            SetDynamicShader(1);
+            SetDynamicShader(2);
+            SetDynamicShader(3);
+
+            glslc.Run();
 
             bfsha.Save("NEW.bfsha");
             resFile.Save("NEW.bfres");
@@ -98,10 +115,7 @@ namespace ShaderLibrary.CompileTool
             var shader_options = GetOptionSearch(material, shape, pipeline);
             //get program
             var programIdx = shader.GetProgramIndex(shader_options);
-            var indices_total = shader.GetProgramIndexList(shader_options);
-
-            Console.WriteLine($"Found index {programIdx} of {indices_total.Count}");
-
+            Console.WriteLine($"Found index {programIdx}");
             //get target variation data
             return Tuple.Create(programIdx, shader.GetVariation(programIdx).BinaryProgram);
         }
@@ -128,6 +142,8 @@ namespace ShaderLibrary.CompileTool
             //render info configures options of compiled shaders (alpha testing and render state)
             var renderMode = material.GetRenderInfoString("gsys_render_state_mode");
             var alphaTest = material.GetRenderInfoString("gsys_alpha_test_enable");
+
+            options["gsys_alpha_test_func"] = "6";
 
             if (options.ContainsKey("gsys_renderstate"))
                 options["gsys_renderstate"] = RenderStateModes[renderMode];
