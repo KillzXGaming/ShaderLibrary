@@ -19,6 +19,9 @@ namespace ShaderLibrary
         public BinaryHeader BinHeader; //A header shared between bnsh and other formats
         public BnshHeader Header; //Bnsh header
 
+        public int DataAlignment => (1 << BinHeader.Alignment);
+
+
         public BnshFile() {
             Variations = new List<ShaderVariation>();
             BinHeader = new BinaryHeader();

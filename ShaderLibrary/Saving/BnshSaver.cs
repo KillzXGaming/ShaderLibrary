@@ -377,7 +377,7 @@ namespace ShaderLibrary
                 SaveShaderCode(prog.ComputeShader, byteCodeOffsetsCompute[i]);
             }
 
-            writer.AlignBytes(8192);
+            writer.AlignBytes(bnsh.DataAlignment);
 
             long data_end = writer.BaseStream.Position;
             long data_size = data_end - data_start;

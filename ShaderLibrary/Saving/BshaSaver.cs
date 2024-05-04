@@ -576,6 +576,8 @@ namespace ShaderLibrary
                 }
             }
 
+            writer.AlignBytes(1024);
+
             RelocationTable.SetRelocationSection(1, (uint)pos2, (uint)(writer.BaseStream.Position - pos2));
 
             RelocationTable.Write(writer);
