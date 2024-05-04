@@ -330,22 +330,9 @@ namespace ShaderLibrary
             return this.BnshFile.Variations[program.VariationIndex];
         }
 
-        public int GetProgramIndexFast(Dictionary<string, string> options)
-        {
-            return ShaderOptionSearcher.GetProgramIndex(this, options);
-        }
-
         public int GetProgramIndex(Dictionary<string, string> options)
         {
-            int num_keys_per_program = StaticKeyLength + DynamicKeyLength;
-            for (int i = 0; i < Programs.Count; i++)
-            {
-                var idx = num_keys_per_program * i;
-
-                if (ShaderOptionSearcher.IsValidProgram(this, i, options))
-                    return i;
-            }
-            return -1;
+            return ShaderOptionSearcher.GetProgramIndex(this, options);
         }
 
         public List<int> GetProgramIndexList(Dictionary<string, string> options)
@@ -656,7 +643,10 @@ namespace ShaderLibrary
 
         public void SetKey(ref int key, int choiceIdx)
         {
-            key = (int)((choiceIdx << this.Bit32Shift) & this.Bit32Mask);
+            // Clear the existing choice index
+            int clearedKey = (int)(key & ~this.Bit32Mask);
+            // Set the new choice index
+            key = clearedKey | (choiceIdx << this.Bit32Shift);
             //verify
             var new_choiceIdx = GetChoiceIndex(key);
             if (new_choiceIdx != choiceIdx)
