@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,14 +14,16 @@ namespace ShaderLibrary.Helpers
         {
             //Generate keys of the shader options
             int[] key_lookup = WriteOptionKeys(shader, options);
-
-            //Lookup the key in the key list
-            int num_keys_per_program = shader.StaticKeyLength + shader.DynamicKeyLength;
             for (int i = 0; i < shader.Programs.Count; i++)
             {
                 if (IsMatch(shader, i, key_lookup))
                     return i;
             }
+
+            Debug.WriteLine($"Failed to find shader. Using backup check.");
+
+            //Lookup the key in the key list
+            int num_keys_per_program = shader.StaticKeyLength + shader.DynamicKeyLength;
 
             //Temp fall back to previous search method
             //Should not need to run unless the shader options given are incomplete (ie missing render info options)
@@ -155,8 +158,6 @@ namespace ShaderLibrary.Helpers
             int num_keys_per_program = shader.StaticKeyLength + shader.DynamicKeyLength;
             for (int i = 0; i < shader.Programs.Count; i++)
             {
-                var idx = num_keys_per_program * i;
-
                 if (IsValidProgram(shader, i, options))
                     CheckChoices(shader, i, options);
             }
@@ -164,6 +165,8 @@ namespace ShaderLibrary.Helpers
 
         static void CheckChoices(ShaderModel shader, int programIndex, Dictionary<string, string> options)
         {
+            Debug.WriteLine($"checking program {programIndex}");
+
             int numKeysPerProgram = shader.StaticKeyLength + shader.DynamicKeyLength;
 
             var maxBit = shader.StaticOptions.Values.Max(x => x.Bit32Index);
@@ -180,7 +183,7 @@ namespace ShaderLibrary.Helpers
                 //A shader option choice not set in the lookup and not a default choice
                 //This must be set for a valid lookup
                 if (!options.ContainsKey(option.Name) && choice != option.DefaultChoice)
-                    Console.WriteLine($"Unexpected choice value {option.Name} should be {choice}, not default {option.DefaultChoice}");
+                    Debug.WriteLine($"Unexpected choice value {option.Name} should be {choice}, not default {option.DefaultChoice}");
             }
 
             for (int j = 0; j < shader.DynamicOptions.Count; j++)
@@ -191,7 +194,10 @@ namespace ShaderLibrary.Helpers
                 if (choiceIndex > option.Choices.Count || choiceIndex == -1)
                     throw new Exception($"Invalid choice index in key table! {option.Name} index {choiceIndex}");
 
+
                 string choice = option.Choices.GetKey(choiceIndex);
+                if (!options.ContainsKey(option.Name) && choice != option.DefaultChoice)
+                    Debug.WriteLine($"Unexpected choice value {option.Name} should be {choice}, not default {option.DefaultChoice}");
             }
         }
     }
