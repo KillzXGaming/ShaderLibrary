@@ -179,10 +179,10 @@ namespace ShaderLibrary
 
                     if (bfsha.BinHeader.VersionMajor >= 9)
                     {
-                        writer.Write((ushort)op.BlockOffset);
+                        writer.Write((ushort)op.DefaultChoiceIdx);
                         writer.Write((ushort)0);
 
-                        writer.Write((byte)op.Flag);
+                        writer.Write((byte)op.BlockOffset);
                         writer.Write((byte)op.KeyOffset);
                         writer.Write(op.Bit32Mask);
 
@@ -195,7 +195,7 @@ namespace ShaderLibrary
                     {
                         writer.Write((ushort)op.BlockOffset);
 
-                        writer.Write((byte)op.Flag);
+                        writer.Write((byte)op.DefaultChoiceIdx);
                         writer.Write((byte)op.KeyOffset);
                         writer.Write((byte)op.Bit32Index);
                         writer.Write((byte)op.Bit32Shift);
