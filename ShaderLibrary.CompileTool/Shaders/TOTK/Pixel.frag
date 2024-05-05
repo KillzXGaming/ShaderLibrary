@@ -77,13 +77,21 @@
 
 layout (binding = 2, std140) uniform GsysContext
 {
-    precise vec4 data[4096];
+    mat3x4 cView;
+    mat4 cViewProj;
+    mat4 cProj;
+    mat3x4 cViewInv;
+    vec4 cNearFar; //znear, zfar, ratio, inverse ratio
 } context;
 
 layout (binding = 5, std140) uniform GsysShape
 {
-    mat3x4 transform;
+    mat3x4 cTransform;
 	vec4 cParams; //x = skin count
+	vec4 cUnknown1; //0
+	vec4 cUnknown2; //0
+	vec4 cUnknown3; //1 0 0 0
+	vec4 cTranslation; //needed to transform into world space
 } shape;
 
 struct Fog {
@@ -566,6 +574,8 @@ void main()
 	GBufferEncode gbuffer;
 	EncodeGBuffer(normals, spec_mask, metalness, ao, gbuffer);
 
+	base_color.rgb = vec3(1.0, 0.0, 0.0);
+
 	oAlbedoColor.xyz = base_color.rgb; 
 	oAlbedoColor.a = gbuffer.AlbedoAlphaPack;
 
@@ -618,13 +628,15 @@ void main()
 	else
 		oEmission = vec4(0.0);
 
+		oEmission = vec4(5.0, 0, 0, 1);
+
 	//storage buffer calculations
 
 	//Calculate index for shader info tile grid
-	float index_x = gl_FragCoord.x * context.data[146].x; //w
+/*	float index_x = gl_FragCoord.x * context.data[146].x; //w
 	float index_y = gl_FragCoord.y * context.data[146].y; //h
 	//TODO is this correct???
 	int index = int(index_x) * int(index_y) + int(index_x * context.data[146].z);
-	sceneShadingInfo.Tiles[index >> 2] = 1u;
+	sceneShadingInfo.Tiles[index >> 2] = 1u;*/
     return;
 }

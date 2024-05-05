@@ -1,7 +1,20 @@
 #version 450 core
 
+#define o_enable_texcoord1 true
+#define o_enable_texcoord2 false
+#define o_enable_texcoord3 false
+#define o_enable_texcoord4 false
+
 //must match the mesh using this material
 #define SKIN_COUNT 4
+
+//uv to use
+#define o_texture0_texcoord 0
+#define o_texture1_texcoord 0
+#define o_texture2_texcoord 0
+#define o_texture3_texcoord 0
+#define o_texture4_texcoord 0
+#define o_texture5_texcoord 0
 
 // tex srt to use
 #define o_texcoord0_srt -1
@@ -11,6 +24,7 @@
 #define o_texcoord4_srt -1
 #define o_texcoord5_srt -1
 
+// mapping method to use
 #define o_texcoord0_mapping 0
 #define o_texcoord1_mapping 0
 #define o_texcoord2_mapping 0
@@ -170,6 +184,11 @@ layout (binding = 9, std140) uniform GsysMaterial
 	float p_wind_vtx_transform_lie_intensity;
 }mat;
 
+layout (binding = 0, std430) buffer _vp_s0
+{
+    uint data[];
+} LightAnalyzeBuffer;
+
 layout (location = 0) in vec4 vPosition;
 layout (location = 1) in vec4 vNormal;
 layout (location = 2) in vec4 vTangent;
@@ -182,9 +201,9 @@ layout (location = 8) in vec2 vTexCoords0;
 layout (location = 9) in vec2 vTexCoords1;
 layout (location = 10) in vec2 vTexCoords2;
 layout (location = 11) in vec2 vTexCoords3;
-layout (location = 11) in vec2 vTexCoords4;
-layout (location = 12) in vec4 vColor0;
-layout (location = 13) in vec4 vColor1;
+layout (location = 12) in vec2 vTexCoords4;
+layout (location = 13) in vec4 vColor0;
+layout (location = 14) in vec4 vColor1;
 
 //Confirmed for these to match up with the contents
 layout (location = 0) out vec4 fTexCoords0; //tex coords 0 -> 1
@@ -194,15 +213,27 @@ layout (location = 0) out vec4 fTexCoords0; //tex coords 0 -> 1
 layout (location = 1) out vec4 fNormals;
 layout (location = 2) out vec4 fTangents;
 layout (location = 3) out vec4 fColor;
-layout (location = 4) out vec4 fToonSpecCoords;
-layout (location = 5) out vec4 fScreenCoords;
+
+layout (location = 4) out vec4 fViewPos;
+
+layout (location = 5) out vec4 fToonSpecCoords;
+//layout (location = 5) out vec4 fScreenCoords;
+
+
+layout (location = 6) out vec4 out_attr6;
+layout (location = 7) out vec4 out_attr7;
+layout (location = 8) out vec4 out_attr8;
+layout (location = 9) out vec4 out_attr9;
+
 
 //TODO check the rest
-layout (location = 7) out vec4 fTexCoordsBake; //xy shadow, zw lightmap
-layout (location = 8) out vec4 fViewDirection;
 
-layout (location = 10) out vec4 fTexCoords23;
-layout (location = 11) out vec4 fTexCoords4;
+
+layout (location = 12) out vec4 fTexCoordsBake; //xy shadow, zw lightmap
+layout (location = 13) out vec4 fViewDirection;
+
+layout (location = 14) out vec4 fTexCoords23;
+layout (location = 15) out vec4 fTexCoords4;
 
 
 vec4 calc_fog(vec3 pos)
@@ -267,13 +298,13 @@ vec2 calc_texcoord_matrix(mat2x4 mat, vec2 tex_coord)
 	return (tex_coord * mat3x2(r0, r1)).xy;
 }
 
-vec2 get_tex_coord(vec2 tex_coord, mat2x4 mat, int type)
+vec2 get_tex_coord(mat2x4 mat, int type)
 {
-	return tex_coord;
-
-	if (type == 0)
-		return calc_texcoord_matrix(mat, tex_coord);
-	if (type == 4) //sphere mapping used on metal characters
+	if	    (type == 0) return calc_texcoord_matrix(mat, vTexCoords0.xy);
+	else if (type == 1) return calc_texcoord_matrix(mat, vTexCoords1.xy);
+	else if (type == 2) return calc_texcoord_matrix(mat, vTexCoords2.xy);
+	else if (type == 3) return calc_texcoord_matrix(mat, vTexCoords3.xy);
+	else if (type == 20) //sphere mapping used on eyes
 	{
 		//view normal
 		vec3 view_n = (normalize(fNormals.xyz) * mat3(context.cView)).xyz;
@@ -311,9 +342,11 @@ vec2 get_tex_mapping(int type)
 
 vec2 CalculateToonCoords()
 {
-	return calc_texcoord_matrix(
-		get_srt(o_texcoord_toon_spec_srt), 
-		get_tex_mapping(o_texcoord_toon_spec_mapping));;
+	vec2 tex_coords = get_tex_coord(get_srt(o_texcoord_toon_spec_srt), o_texcoord_toon_spec_mapping);
+
+    float temp_125 = fma(tex_coords.x, tex_srt[0].x, tex_coords.x * tex_srt[0].z) + tex_srt[1].x;
+
+	return vec2(temp_125, temp_125 * 0.699999988);
 }
  
 void main()
@@ -328,32 +361,40 @@ void main()
 	vec3 view_p = (position.xyz * mat3(context.cView)).xyz;
 
 	//normals
-	fNormals = vec4(normal.xyz, 1.0);
+	fNormals = vec4(normal.xyz * mat3(context.cView), 1.0);
 
 	//tangents
-	fTangents.xyz = tangent.xyz;
+	fTangents.xyz = tangent.xyz * mat3(context.cView);
 	fTangents.w = vTangent.w;
 
 	//material tex coords
-	fTexCoords0.xy  = get_tex_coord(vTexCoords0.xy, get_srt(o_texcoord0_srt), o_texcoord0_mapping);	
-	fTexCoords0.zw  = get_tex_coord(vTexCoords1.xy, get_srt(o_texcoord1_srt), o_texcoord1_mapping);	
-	fTexCoords23.xy = get_tex_coord(vTexCoords2.xy, get_srt(o_texcoord2_srt), o_texcoord2_mapping);	
-	fTexCoords23.zw = get_tex_coord(vTexCoords3.xy, get_srt(o_texcoord3_srt), o_texcoord3_mapping);	
-	fTexCoords4.xy  = get_tex_coord(vTexCoords4.xy, get_srt(o_texcoord4_srt), o_texcoord4_mapping);	
+	fTexCoords0.xy  = get_tex_coord(get_srt(o_texcoord0_srt), o_texcoord0_mapping);	
+	if (o_enable_texcoord1)
+		fTexCoords0.zw  = get_tex_coord(get_srt(o_texcoord1_srt), o_texcoord1_mapping);	
+	if (o_enable_texcoord2)
+		fTexCoords23.xy = get_tex_coord(get_srt(o_texcoord2_srt), o_texcoord2_mapping);	
+	if (o_enable_texcoord3)
+		fTexCoords23.zw = get_tex_coord(get_srt(o_texcoord3_srt), o_texcoord3_mapping);	
+	if (o_enable_texcoord4)
+		fTexCoords4.xy  = get_tex_coord(get_srt(o_texcoord4_srt), o_texcoord4_mapping);	
 
-	fColor = vColor0;
+	//fColor = vColor0;
+
+	fViewPos.xyz = view_p.xyz;
 
 	//bake texCoords
-    fTexCoordsBake.xy = CalcScaleBias(vTexCoords1.xy, mat.gsys_bake_st0);
+  //  fTexCoordsBake.xy = CalcScaleBias(vTexCoords1.xy, mat.gsys_bake_st0);
 
-	vec3 ndc = gl_Position.xyz / gl_Position.w; //perspective divide/normalize
-	//Flip needed
-    ndc.y *= -1.0;
+	out_attr6.x = (		 gl_Position.x + gl_Position.w) * 0.5;;
+	out_attr6.y = (0.0 - gl_Position.y + gl_Position.w) * 0.5;;
+	out_attr6.w = gl_Position.w;
+
+	out_attr7.xyz = vPosition.xyz;
 
 	//used by screen effects (shadows, light prepass, color buffer)
-    fScreenCoords.xy = ndc.xy * 0.5 + 0.5;
-    fScreenCoords.xy *= gl_Position.w;
-    fScreenCoords.zw = gl_Position.zw;
+   // fScreenCoords.xy = ndc.xy * 0.5 + 0.5;
+  //  fScreenCoords.xy *= gl_Position.w;
+   // fScreenCoords.zw = gl_Position.zw;
 
 	fToonSpecCoords.xy = CalculateToonCoords();
 
@@ -362,6 +403,17 @@ void main()
 	   context.cViewInv[0].w,
 	   context.cViewInv[1].w, 
 	   context.cViewInv[2].w);
+
+	vec3 shading_color = vec3(LightAnalyzeBuffer.data[36],
+							  LightAnalyzeBuffer.data[37],
+							  LightAnalyzeBuffer.data[38]);
+
+	uint xlu_param = LightAnalyzeBuffer.data[21];
+	uint param1	= LightAnalyzeBuffer.data[20];
+
+
+    out_attr8.w = uintBitsToFloat(xlu_param);
+    out_attr9.x = uintBitsToFloat(param1);
 
     return;
 }
