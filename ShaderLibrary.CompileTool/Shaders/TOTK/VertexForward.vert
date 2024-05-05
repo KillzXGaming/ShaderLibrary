@@ -296,7 +296,7 @@ vec2 get_tex_coord(mat2x4 mat, int type)
 		//center the uvs
 		return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
 	}
-	return tex_coord;
+	return vTexCoords0.xy;
 }
 
 mat2x4 get_srt(int type)

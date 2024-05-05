@@ -195,9 +195,8 @@ layout (location = 8) in vec2 vTexCoords0;
 layout (location = 9) in vec2 vTexCoords1;
 layout (location = 10) in vec2 vTexCoords2;
 layout (location = 11) in vec2 vTexCoords3;
-layout (location = 12) in vec2 vTexCoords4;
-layout (location = 13) in vec4 vColor0;
-layout (location = 14) in vec4 vColor1;
+layout (location = 12) in vec4 vColor0;
+layout (location = 13) in vec4 vColor1;
 
 //Confirmed for these to match up with the contents
 layout (location = 0) out vec4 fTexCoords0; //tex coords 0 -> 1
@@ -305,7 +304,7 @@ vec2 get_tex_coord(mat2x4 mat, int type)
 		//center the uvs
 		return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
 	}
-	return tex_coord;
+	return vTexCoords0.xy;
 }
 
 mat2x4 get_srt(int type)
@@ -327,7 +326,6 @@ vec2 get_tex_mapping(int type)
 	else if (type == 1) return vTexCoords1.xy;
 	else if (type == 2) return vTexCoords2.xy;
 	else if (type == 3) return vTexCoords3.xy;
-	else if (type == 4) return vTexCoords4.xy;
 
 	return vTexCoords0.xy;;
 }
