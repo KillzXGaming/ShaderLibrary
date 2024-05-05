@@ -323,20 +323,19 @@ mat2x4 get_srt(int type)
 
 vec2 get_tex_mapping(int type)
 {
-	switch (type)
-	{
-		case 0: return fTexCoords0.xy;
-		case 1: return fTexCoords0.zw;
-		case 2: return fTexCoords23.xy;
-		case 3: return fTexCoords23.zw;
-		case 4: return fTexCoords4.xy;
-	}
+	if	    (type == 0) return vTexCoords0.xy;
+	else if (type == 1) return vTexCoords1.zw;
+	else if (type == 2) return vTexCoords2.xy;
+	else if (type == 3) return vTexCoords3.zw;
+	else if (type == 4) return vTexCoords4.xy;
+
 	return vTexCoords0.xy;;
 }
 
 vec2 CalculateToonCoords()
 {
-	vec2 tex_coords = get_tex_coord(get_srt(o_texcoord_toon_spec_srt), o_texcoord_toon_spec_mapping);
+	mat2x4 tex_srt = get_srt(o_texcoord_toon_spec_srt);
+	vec2 tex_coords = get_tex_mapping(o_texcoord_toon_spec_mapping);
 
     float temp_125 = fma(tex_coords.x, tex_srt[0].x, tex_coords.x * tex_srt[0].z) + tex_srt[1].x;
 
