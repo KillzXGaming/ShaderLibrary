@@ -8,14 +8,6 @@
 //must match the mesh using this material
 #define SKIN_COUNT 4
 
-//uv to use
-#define o_texture0_texcoord 0
-#define o_texture1_texcoord 0
-#define o_texture2_texcoord 0
-#define o_texture3_texcoord 0
-#define o_texture4_texcoord 0
-#define o_texture5_texcoord 0
-
 // tex srt to use
 #define o_texcoord0_srt -1
 #define o_texcoord1_srt -1
@@ -25,6 +17,8 @@
 #define o_texcoord5_srt -1
 
 // mapping method to use
+// 0 -> 3 uses uv layer
+// 20 might be sphere mapping (eyes)
 #define o_texcoord0_mapping 0
 #define o_texcoord1_mapping 0
 #define o_texcoord2_mapping 0
