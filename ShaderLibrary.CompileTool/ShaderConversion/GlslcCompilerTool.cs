@@ -62,6 +62,8 @@ void main()
                 //Compile with macros and adjusted locations for glslc
                 VertexCodeSrc = CompileMacros(macros, FixLocations(vertexSrc)),
                 PixelCodeSrc = CompileMacros(macros, FixLocations(pixelSrc)),
+                SetVertexShader = use_vertex,
+                SetPixelShader = use_pixel,
             });
         }
 
@@ -72,14 +74,18 @@ void main()
             if (!Directory.Exists("ryujinx") || Shaders.Count == 0)
                 return;
 
+            //Remove previous
+            foreach (var file in Directory.GetFiles(Path.Combine("ryujinx", "portable", "sdcard")))
+                File.Delete(file);
+
             //Dump prepare
             for (int i = 0; i < Shaders.Count; i++)
             {
                 //Target shader sources
                 string frag_code_path = Path.Combine("ryujinx", "portable", "sdcard", $"shader{i}.frag");
                 string vert_code_path = Path.Combine("ryujinx", "portable", "sdcard", $"shader{i}.vert");
-                File.WriteAllText(vert_code_path, Shaders[i].VertexCodeSrc);
-                File.WriteAllText(frag_code_path, Shaders[i].PixelCodeSrc);
+                File.WriteAllText(vert_code_path, Shaders[i].VertexCodeSrc + "\0", Encoding.ASCII);
+                File.WriteAllText(frag_code_path, Shaders[i].PixelCodeSrc + "\0", Encoding.ASCII);
             }
 
             //run exec and compile code
