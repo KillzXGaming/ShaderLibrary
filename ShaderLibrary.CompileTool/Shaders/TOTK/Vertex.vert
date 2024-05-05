@@ -324,9 +324,9 @@ mat2x4 get_srt(int type)
 vec2 get_tex_mapping(int type)
 {
 	if	    (type == 0) return vTexCoords0.xy;
-	else if (type == 1) return vTexCoords1.zw;
+	else if (type == 1) return vTexCoords1.xy;
 	else if (type == 2) return vTexCoords2.xy;
-	else if (type == 3) return vTexCoords3.zw;
+	else if (type == 3) return vTexCoords3.xy;
 	else if (type == 4) return vTexCoords4.xy;
 
 	return vTexCoords0.xy;;
