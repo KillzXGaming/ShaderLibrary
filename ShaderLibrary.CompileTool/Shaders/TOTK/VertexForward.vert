@@ -1,5 +1,7 @@
 #version 450 core
 
+precision mediump float;
+
 //must match the mesh using this material
 #define SKIN_COUNT 4
 

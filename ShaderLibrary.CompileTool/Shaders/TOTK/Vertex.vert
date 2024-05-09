@@ -1,5 +1,7 @@
 #version 450 core
 
+precision mediump float;
+
 #define o_enable_texcoord1 true
 #define o_enable_texcoord2 false
 #define o_enable_texcoord3 false
