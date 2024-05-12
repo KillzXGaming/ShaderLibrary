@@ -402,7 +402,7 @@ namespace ShaderLibrary
         public void SetOptionKey(ShaderOption option, string choice, int programIdx)
         {
             //in theory the static options should not share any of the dynamic options
-            //for the sake of convience, check by shader option name to tell if it is dynamic
+            //for the sake of convenience, check by shader option name to tell if it is dynamic
             bool is_dynamic = this.DynamicOptions.ContainsKey(option.Name);
 
             //The amount of keys used per program
@@ -415,7 +415,7 @@ namespace ShaderLibrary
             if (choiceIndex == -1)
                 throw new Exception($"Invalid choice input ({choice}) for {option.Name}!");
 
-            int key_idx = baseIndex + option.Bit32Index - (is_dynamic ? option.KeyOffset : 0);
+            int key_idx = baseIndex + option.Bit32Index;
 
             option.SetKey(ref this.KeyTable[key_idx], choiceIndex);
 

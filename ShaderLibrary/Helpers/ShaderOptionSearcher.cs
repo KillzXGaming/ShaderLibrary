@@ -99,10 +99,9 @@ namespace ShaderLibrary.Helpers
             for (int j = 0; j < shader.DynamicOptions.Count; j++)
             {
                 var option = shader.DynamicOptions[j];
-                int ind = option.Bit32Index - option.KeyOffset;
 
                 //Set the default dynamic option choice
-                option.SetKey(ref keys[shader.StaticKeyLength + ind], option.DefaultChoiceIdx);
+                option.SetKey(ref keys[option.Bit32Index], option.DefaultChoiceIdx);
             }
 
             return keys;
