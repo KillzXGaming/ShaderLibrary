@@ -103,7 +103,7 @@ namespace ShaderLibrary
 
         public BfshaFile CreateNewArchive(string name, ShaderModel shader, params int[] programIndices)
         {
-            //Export as a seperate usable bfsha binary
+            //Export as a separate usable bfsha binary
             var programs = programIndices.Select(x => shader.Programs[x]).ToList();
 
             BfshaFile bfsha = new BfshaFile()
@@ -401,10 +401,6 @@ namespace ShaderLibrary
 
         public void SetOptionKey(ShaderOption option, string choice, int programIdx)
         {
-            //in theory the static options should not share any of the dynamic options
-            //for the sake of convenience, check by shader option name to tell if it is dynamic
-            bool is_dynamic = this.DynamicOptions.ContainsKey(option.Name);
-
             //The amount of keys used per program
             int numKeysPerProgram = this.StaticKeyLength + this.DynamicKeyLength;
 
