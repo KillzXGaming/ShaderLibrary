@@ -349,9 +349,8 @@ void main()
 	vec3 normal = skinNormal(vNormal.xyz);
 	vec3 tangent = skinNormal(vTangent.xyz);
 
-    gl_Position = vec4(shape.cTranslation.xyz + position.xyz, 1) * context.cViewProj;
-	//view position to compute fog
-	vec3 view_p = (position.xyz * mat3(context.cView)).xyz;
+	vec4 view_p =  vec4(position.xyz + shape.cTranslation.xyz, 1) * mat4(context.cView);
+    gl_Position = view_p * context.cProj;
 
 	//normals
 	fNormals = vec4(normal.xyz * mat3(context.cView), 1.0);
