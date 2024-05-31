@@ -429,6 +429,10 @@ namespace ShaderLibrary
                             writer.SaveString(entry.Value3);
                             writer.SaveString(entry.Name3);
                         }
+                        if (bfsha.BinHeader.VersionMajor == 9)
+                        {
+                            writer.SaveString(entry.Value1);
+                        }
                     }
 
                     if (model.SymbolData.Samplers.Count > 0)
