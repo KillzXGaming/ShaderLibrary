@@ -889,6 +889,17 @@ namespace ShaderLibrary
                 SamplerIndices = reader.ReadArray<ShaderIndexHeader>(header.SamplerIndexTableOffset, header.NumSamplers);
                 StorageBufferIndices = reader.ReadArray<ShaderIndexHeader>(header.StorageBufferIndexTableOffset, header.NumStorageBuffers);
             }
+            else if (reader.Header.VersionMajor >= 5)
+            {
+                var header = new ShaderProgramHeaderV5();
+                reader.BaseStream.Read(Utils.AsSpan(ref header));
+
+                VariationOffset = header.VariationOffset;
+                UsedAttributeFlags = header.UsedAttributeFlags;
+                Flags = header.Flags;
+                UniformBlockIndices = reader.ReadArray<ShaderIndexHeader>(header.UniformIndexTableBlockOffset, header.NumBlocks);
+                SamplerIndices = reader.ReadArray<ShaderIndexHeader>(header.SamplerIndexTableOffset, header.NumSamplers);
+            }
             else
             {
                 var header = new ShaderProgramHeaderV4();

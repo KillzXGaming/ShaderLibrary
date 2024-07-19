@@ -347,6 +347,19 @@ namespace ShaderLibrary
                         writer.Write((ushort)prog.StorageBufferIndices.Count);
                         writer.Write(new byte[4]);
                     }
+                    else if (bfsha.BinHeader.VersionMajor >= 5)
+                    {
+                        prog._samplerTableOfsPos = writer.SaveOffset();
+                        prog._uniformBlockTableOfsPos = writer.SaveOffset();
+                        prog._shaderVariationOfsPos = writer.SaveOffset(); //from bnsh
+                        writer.Write(ofs_list.Position); //shader model pos
+                        writer.Write(prog.UsedAttributeFlags);
+                        writer.Write((ushort)prog.Flags);
+                        writer.Write((ushort)prog.SamplerIndices.Count);
+                        writer.Write((ushort)prog.UniformBlockIndices.Count);
+                        writer.Write(new byte[6]);
+                        writer.Write(new byte[8]); //version 5 is weird, write this unused pointer 
+                    }
                     else
                     {
                         prog._samplerTableOfsPos = writer.SaveOffset();
