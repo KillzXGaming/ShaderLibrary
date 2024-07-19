@@ -358,6 +358,8 @@ namespace ShaderLibrary
                         writer.Write((ushort)prog.SamplerIndices.Count);
                         writer.Write((ushort)prog.UniformBlockIndices.Count);
                         writer.Write(new byte[6]);
+
+                        RelocationTable.SaveEntry(writer, (uint)writer.Position, 1, 1, 0, 0, "Shader Program v5 unk offset");
                         writer.Write(new byte[8]); //version 5 is weird, write this unused pointer 
                     }
                     else
