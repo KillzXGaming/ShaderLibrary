@@ -305,6 +305,8 @@ namespace ShaderLibrary
                     num_padding = 7;
                 else if (bfsha.BinHeader.VersionMajor >= 7)
                     num_padding = 6;
+                else if (bfsha.BinHeader.VersionMajor == 5)
+                    num_padding = 6;
 
                 RelocationTable.SaveEntry(writer, num_offsets,
                           (uint)model.Programs.Count, 4, 0, "Shader Programs");
