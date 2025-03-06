@@ -15,7 +15,7 @@ namespace ShaderLibrary
         public static void Run()
         {
             Run("Hoian_UBER.Nin_NX_NVN.bfsha");
-            Run("Clt_COP001.bfres", "Hoian_UBER.Product.500.product.Nin_NX_NVN.bfsha");
+            Run("Clt_COP001.bfres", "Hoian_UBER.Product.920.product.Nin_NX_NVN.bfsha");
         }
 
         public static void Run(string shader_path)

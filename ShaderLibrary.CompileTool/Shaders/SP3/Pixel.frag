@@ -1,39 +1,12 @@
 ﻿#version 450
 
-#define vertex_color 0
-#define enable_fog_y 0
-#define enable_fog_z 0
-
 #define gsys_assign_material 0
 #define gsys_assign_zonly 1
 
-#define gsys_weight 0
+#define gsys_normalmap_BC1 false
+#define enable_normal true
+
 #define gsys_assign_type gsys_assign_material
-
-#define SCREEN_COORDS true // todo find macro that needs these. blitz_paint_type might use this?
-
-// Note that tex coord 1 is reserved for bake, so 0 2 3 are valid coords
-// Values over 3 may be other map types like projection, sphere, etc
-#define texcoord_calc_texcoord0 0
-#define texcoord_calc_texcoord2 0
-#define texcoord_calc_texcoord3 0
-
-// Selectors which determine what tex coord to use
-// Possible values : 0 2 3
-#define texcoord_select_albedo 0
-#define texcoord_select_normal 0
-#define texcoord_select_teamcolormap 0
-#define texcoord_select_rghmap 0
-#define texcoord_select_mtlmap 0
-#define texcoord_select_emmmap 0
-#define texcoord_select_trsmap 0
-#define texcoord_select_ao 0
-#define texcoord_select_comppaint 0
-#define texcoord_select_sfxmask 0
-#define texcoord_select_res0 0
-#define texcoord_select_res1 0
-#define texcoord_select_res2 0
-#define texcoord_select_opacity 0
 
 #define enable_bake_shadow 0
 #define enable_bake_ao 0
@@ -43,12 +16,23 @@
 
 const int MAX_BONE_COUNT = 120;
 
+layout (binding = 1) uniform sampler2D cTexAlbedo;
+layout (binding = 2) uniform sampler2D cTexSubstitution;
+layout (binding = 3) uniform sampler2D cTexNormal;
+layout (binding = 4) uniform sampler2D cTexRoughness;
+layout (binding = 5) uniform sampler2D cTexMetalness;
+layout (binding = 15) uniform sampler2D cTexCompPaint;
+layout (binding = 16) uniform sampler2D cGSysProjection0;
+layout (binding = 17) uniform sampler2D cGSysShadowPrePass;
+layout (binding = 24) uniform sampler2D cEnvBRDFMap;
+layout (binding = 23) uniform samplerCubeArray cPrefilEnvMapArray;
+
 layout(binding = 0, std140) uniform Context
 {
-    mat3x4 cView; 
+    mat3x4 cView;
     mat4 cViewProj;
     mat4 cProj;
-    mat3x4 cViewInv; 
+    mat3x4 cViewInv;
     vec4 cNearFar; //znear, zfar, ratio, inverse ratio
     vec4 cScreen; //screen width/height
     vec4 cDist; //zfar - znear
@@ -57,19 +41,23 @@ layout(binding = 0, std140) uniform Context
     vec4 cc;
     vec4 sf;
     mat3x4 cPrevView;
-    mat4 cPrevViewProj; // [24]
-    mat4 cPrevProj; // [28]
-    mat3x4 cPrevViewInv; // [31]
-    mat3x4 cProjectionTexMtx0; // [35]
-    mat3x4 cProjectionTexMtx1; // [38]
-    vec4 cProjParams; // [39]
-    mat4 cCascadeMtx0; // [40]
+    mat4 cPrevViewProj;
+    mat4 cPrevProj;
+    mat3x4 cPrevViewInv;
+    mat3x4 cProjectionTexMtx0;
+    mat3x4 cProjectionTexMtx1;
+    vec4 cProjParams;
+    mat4 cCascadeMtx0;
     mat4 cCascadeMtx1;
     mat4 cCascadeMtx2;
-    mat4 cCascadeMtx3; // [52]
-    vec4 cShadowParam1; // [56]
-    vec4 cShadowParam2; // [57]
-    mat4 cDepthShadow; // [60]
+    mat4 cCascadeMtx3;
+
+    vec4 Unk0;
+    vec4 Unk1;
+    vec4 Unk2;
+    vec4 Unk3;
+    vec4 Unk4;
+    vec4 Unk5;
 
     vec4 cCubemapHDR;
 } context;
@@ -80,6 +68,11 @@ layout(binding = 1, std140) uniform ShpMtx
     mat3x4 cTransform;
 	vec4 cParams; //x = skin count
 } shape;
+
+layout(binding = 2, std140) uniform ShaderOption
+{
+    vec4 _m0[4096];
+} shaderOption;
 
 layout(binding = 2, std140) uniform Mat
 {
@@ -477,248 +470,60 @@ layout(binding = 2, std140) uniform Mat
     vec2 padding;
 } mat;
 
-layout(binding = 3, std140) uniform BlitzUBO0
+layout(binding = 4, std140) uniform BlitzUBO0
 {
-    vec4 _m0[4096];
+    vec4 data[4096];
 } blitzUBO0;
 
-layout(binding = 4, std140) uniform BlitzUBO1
+layout(binding = 5, std140) uniform BlitzUBO1
 {
-    vec4 _m0[4096];
+    vec4 data[4096];
 } blitzUBO1;
 
-layout (binding = 5, std140) uniform Mtx
-{
-    mat3x4 cBoneMatrices[MAX_BONE_COUNT];
-};
+layout (location = 0) in vec4 fTexCoords01;
+layout (location = 1) in vec4 fNormals;
+layout (location = 2) in vec4 fTangents;
+layout (location = 3) in vec4 fVertexPos; // vertex pos
+layout (location = 4) in vec4 fViewDirection; // uses view mtx pos and vertex pos
+layout(location = 5) in vec4 fVertexWorldPos; // vertex pos with view/proj applied
+layout(location = 6) in vec4 fProjectionCoord; // projected position (maybe for ink data)
 
-layout(binding = 6, std140) uniform ShaderOption
-{
-    vec4 _m0[4096];
-} shaderOption;
+layout(location = 0) out vec4 oFragColor;
 
-layout(binding = 0) uniform sampler2D cTexSfxMask;
-layout(binding = 1) uniform sampler2D cTexResource0;
-layout(binding = 2) uniform sampler2D cTexResource1;
-layout(binding = 3) uniform sampler2D cTexCompPaint;
-
-layout(location = 0) in vec4 aPosition;
-layout(location = 1) in vec4 aNormal;
-layout(location = 2) in vec4 aTangent;
-layout(location = 3) in vec4 aColor1;
-layout(location = 4) in vec4 aBlendWeight0;
-layout(location = 5) in vec4 aBlendWeight1;
-layout(location = 6) in ivec4 aBlendIndex0;
-layout(location = 7) in vec4 aBlendIndex1;
-layout(location = 8) in vec4 aTexCoord0;
-layout(location = 9) in vec4 aTexCoord1;
-layout(location = 10) in vec4 aTexCoord2;
-layout(location = 11) in vec4 aTexCoord3;
-layout(location = 12) in vec4 aColor;
-layout(location = 13) in vec4 aPaintUVTangent;
-layout(location = 14) in vec4 aPaintUV;
-layout(location = 15) in vec4 aPaintUVSwitch;
-
-// Expected order based on debug shader
-// layout(location = 0) out vec4 _45; fTexCoords0
-// layout(location = 1) out vec4 _47; fFogDir
-// layout(location = 2) out vec4 _49; fColor
-// layout(location = 3) out vec4 _51; fNormals
-// layout(location = 4) out vec4 _53; fTangents
-// layout(location = 5) out vec4 _55; fVertexViewPos
-// layout(location = 6) out vec4 _57; fViewDirection
-// layout(location = 7) out vec4 _59; fVertexWorldPos (direct gl_Position)
-// layout(location = 8) out vec4 _61; fFogParams
-// layout(location = 15) out vec4 _75; fTexCoordsBake
-
-/*
-out vec4 fTexCoords0;
-out vec4 fNormals;
-out vec4 fFogDir;
-out vec4 fColor;
-out vec4 fTangents;
-out vec4 fVertexViewPos; // vertex view pos
-out vec4 fViewDirection; // uses view mtx pos and vertex pos (_57 in debug shader)
-out vec4 fVertexWorldPos;
-out vec4 fScreenCoords;*/
-
-layout (location = 0) out vec4 fTexCoords0;
-layout (location = 1) out vec4 fNormals;
-layout (location = 2) out vec4 fTangents;
-layout (location = 3) out vec4 fVertexViewPos; // vertex view pos
-layout (location = 4) out vec4 fViewDirection; // uses view mtx pos and vertex pos (_57 in debug shader)
-layout (location = 5) out vec4 fVertexWorldPos;
-layout (location = 6) out vec4 fProjectionCoord;
-
-
-
-
-layout (location = 7) out vec4 fFogDir;
-layout (location = 8) out vec4 fColor;
-layout (location = 9) out vec4 fFogParams;
-
-// Todo find right location
-layout (location = 13) out vec4 fScreenCoords;
-layout (location = 14) out vec4 fTexCoordsBake;
-layout (location = 15) out vec4 fTexCoords23;
-
-vec4 skin(vec3 pos, ivec4 index, vec4 weight)
-{
-    vec4 newPosition = vec4(pos.xyz, 1.0);
-    if (gsys_weight == 0)
-        newPosition = vec4(pos, 1.0) * mat4(shape.cTransform);
-
-    if (gsys_weight == 1)
-        newPosition = vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]);
-
-    if (gsys_weight >  1)
-        newPosition =  vec4(pos, 1.0) * mat4(cBoneMatrices[index.x]) * weight.x;
-    if (gsys_weight >= 2)
-        newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.y]) * weight.y;
-    if (gsys_weight >= 3)
-        newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.z]) * weight.z;
-    if (gsys_weight >= 4)
-        newPosition += vec4(pos, 1.0) * mat4(cBoneMatrices[index.w]) * weight.w;
-        
-    return newPosition;
+vec3 ReconstructNormal(in vec2 t_NormalXY) {
+    float t_NormalZ = sqrt(clamp(1.0 - dot(t_NormalXY.xy, t_NormalXY.xy), 0.0, 1.0));
+    return vec3(t_NormalXY.xy, t_NormalZ);
 }
 
-vec3 skinNormal(vec3 nr, ivec4 index, vec4 weight)
+vec3 UnpackNormalMap(vec4 t_NormalMapSample)
 {
-    vec3 newNormal = nr;
-    if (gsys_weight == 0)
-        newNormal = nr * mat3(shape.cTransform);
+    vec2 t_NormalXY = t_NormalMapSample.xy;
+    if (gsys_normalmap_BC1)	//BC1
+	    t_NormalXY = t_NormalXY * 2.0 - 1.0;
 
-    if (gsys_weight == 1)
-        newNormal =  nr * mat3(cBoneMatrices[index.x]);
-
-    if (gsys_weight >  1)
-        newNormal =  nr * mat3(cBoneMatrices[index.x]) * weight.x;
-    if (gsys_weight >= 2)
-        newNormal += nr *  mat3(cBoneMatrices[index.y]) * weight.y;
-    if (gsys_weight >= 3)
-        newNormal += nr * mat3(cBoneMatrices[index.z]) * weight.z;
-    if (gsys_weight >= 4)
-        newNormal += nr * mat3(cBoneMatrices[index.w]) * weight.w;
-    
-    return newNormal;
+    return ReconstructNormal(t_NormalXY);
 }
 
-vec2 calc_texcoord_matrix(mat2x4 mat, vec2 tex_coord)
+vec3 CalculateNormals(vec3 normals, vec4 normal_map)
 {
-	//actually a 2x3 matrix stored in 2x4
-    vec2 tex_coord_out;
-    tex_coord_out.x = fma(tex_coord.x, mat[0].x, tex_coord.y * mat[0].z) + mat[1].x;
-    tex_coord_out.y = fma(tex_coord.x, mat[0].y, tex_coord.y * mat[0].w) + mat[1].y;
-	return tex_coord_out;
-}
+    if (!enable_normal) //use vertex normals
+        return normals;
 
-vec2 get_tex_coord(vec2 tex_coord, mat2x4 mat, int type)
-{
-	if (type == 0)
-		return calc_texcoord_matrix(mat, tex_coord);
-	if (type == 4) //sphere mapping used on metal characters
-	{
-		//view normal
-		vec3 view_n = (normalize(aNormal.xyz) * mat3(context.cView)).xyz;
-		//center the uvs
-		return view_n.xy * vec2(0.5) + vec2(0.5,-0.5);
-	}
-	return tex_coord;
-}
+    vec3 N = vec3(normals);
+    vec3 T = vec3(fTangents.xyz);
+    vec3 B = cross(fNormals.xyz, fTangents.xyz) * fTangents.w;
 
-vec2 CalcScaleBias(in vec2 t_Pos, in vec4 t_SB) {
-    return t_Pos.xy * t_SB.xy + t_SB.zw;
+    mat3 tbn_matrix = mat3(T, B, N);
+    vec3 tangent_normal = UnpackNormalMap(normal_map);
+
+    return normalize(tbn_matrix * tangent_normal).xyz;
 }
 
 void main()
-{
-	//position
-	vec4 position = skin(aPosition.xyz, aBlendIndex0, aBlendWeight0);
-	vec4 view_p = (vec4(position.xyz, 1.0) * mat4(context.cView));
-    gl_Position = vec4(view_p.xyz, 1.0) * context.cProj;
+{   
+    float paint = texture(cTexCompPaint, fTexCoords01.xy).x + mat.two_color_complement_paint_intensity;
+    paint = min(paint, 0.3) + BlitzUBO0.data[21].w;
 
-	//material tex coords
-	fTexCoords0.xy = get_tex_coord(aTexCoord0.xy, mat.tex_mtx0, texcoord_calc_texcoord0);	
-
-    //Skip other calculations for depth shadow shader
-    if (gsys_assign_type == gsys_assign_zonly)
-        return;
-
-    if (enable_fog_y == 1 || enable_fog_z == 1)
-        fFogDir = vec4(0.0); // Todo
-
-    if (vertex_color == 1)
-	    fColor = aColor;
-
-	//normals
-	fNormals = vec4(skinNormal(aNormal.xyz, aBlendIndex0, aBlendWeight0).xyz, 1.0);
-	fTangents = vec4(skinNormal(aTangent.xyz, aBlendIndex0, aBlendWeight0).xyz, 1.0);
-
-    fVertexViewPos = view_p;
-
-	//world pos - camera pos for eye position
-	fViewDirection.xyz = position.xyz - vec3(
-	   context.cViewInv[0].w,
-	   context.cViewInv[1].w, 
-	   context.cViewInv[2].w);
-
-    fVertexWorldPos = gl_Position;
-
-    fProjectionCoord = (vec4(position.xyz, 1.0) * mat4(context.cProjectionTexMtx0));
-
-    if (SCREEN_COORDS)
-    {
-	    vec3 ndc = gl_Position.xyz / gl_Position.w; //perspective divide/normalize
-	    //Flip needed
-        ndc.y *= -1.0;
-
-	    //used by screen effects (shadows, light prepass, color buffer)
-        fScreenCoords.xy = ndc.xy * 0.5 + 0.5;
-        fScreenCoords.xy *= gl_Position.w;
-        fScreenCoords.zw = gl_Position.zw;
-    }
-
-    if (texcoord_select_albedo == 2 || 
-       texcoord_select_normal == 2 || 
-       texcoord_select_teamcolormap == 2 || 
-       texcoord_select_rghmap == 2 || 
-       texcoord_select_mtlmap == 2 || 
-       texcoord_select_emmmap == 2 || 
-       texcoord_select_trsmap == 2 ||
-       texcoord_select_ao == 2 ||
-       texcoord_select_comppaint == 2 ||
-       texcoord_select_sfxmask == 2 ||
-       texcoord_select_res0 == 2 ||
-       texcoord_select_res1 == 2 ||
-       texcoord_select_res2 == 2 ||
-       texcoord_select_opacity == 2)
-    {
-	    fTexCoords0.zw = get_tex_coord(aTexCoord2.xy, mat.tex_mtx1, texcoord_calc_texcoord2);	
-    }
-
-    if (texcoord_select_albedo == 3 || 
-       texcoord_select_normal == 3 || 
-       texcoord_select_teamcolormap == 3 || 
-       texcoord_select_rghmap == 3 || 
-       texcoord_select_mtlmap == 3 || 
-       texcoord_select_emmmap == 3 || 
-       texcoord_select_trsmap == 3 ||
-       texcoord_select_ao == 3 ||
-       texcoord_select_comppaint == 3 ||
-       texcoord_select_sfxmask == 3 ||
-       texcoord_select_res0 == 3 ||
-       texcoord_select_res1 == 3 ||
-       texcoord_select_res2 == 3 ||
-       texcoord_select_opacity == 3)
-    {
-	    fTexCoords23.xy = get_tex_coord(aTexCoord3.xy, mat.tex_mtx2, texcoord_calc_texcoord3);	
-    }
-
-	//bake texCoords
-    if (bake_shadow_type != -1 || bake_light_type != -1)
-    {
-        fTexCoordsBake.xy = CalcScaleBias(aTexCoord1.xy, mat.gsys_bake_st0);
-        fTexCoordsBake.zw = CalcScaleBias(aTexCoord1.xy, mat.gsys_bake_st1);
-    }
+    oFragColor.rgb = fNormals.rgb;
+    oFragColor.a = 1.0;
 }
