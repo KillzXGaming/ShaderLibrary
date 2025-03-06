@@ -653,7 +653,7 @@ void main()
 
 	//normals
 	fNormals = vec4(skinNormal(aNormal.xyz, aBlendIndex0, aBlendWeight0).xyz, 1.0);
-	fTangents = vec4(skinNormal(aTangent.xyz, aBlendIndex0, aBlendWeight0).xyz, 1.0);
+	fTangents = vec4(skinNormal(aTangent.xyz, aBlendIndex0, aBlendWeight0).xyz, fTangents.w);
 
     fVertexViewPos = view_p;
 
