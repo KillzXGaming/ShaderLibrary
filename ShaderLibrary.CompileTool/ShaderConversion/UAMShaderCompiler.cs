@@ -33,7 +33,7 @@ namespace ShaderLibrary.CompileTool
             //Get the original constants
             var constants = control.GetConstants(binary.ByteCode);
 
-            bool isSucess = ExecuteCommand($"uam.exe {shadername} -o out.raw -s {kind}");
+            bool isSucess = ExecuteCommand($"uam.exe --glslcbinds --nvnctrl=control.bin --nvngpu=program.bin -s {kind} {shadername} ");
             if (!isSucess)
             {
                 Console.WriteLine($"Failed to compile {shadername}! Will fallback to original shader.");
@@ -45,20 +45,21 @@ namespace ShaderLibrary.CompileTool
                 };
             }
 
-            byte[] shader = FixHeader(File.ReadAllBytes("out.raw"));
+            byte[] shader_bin = File.ReadAllBytes("program.bin");
+            byte[] control_bin = File.ReadAllBytes("control.bin");
 
-            control.SetConstants(shader, constants, out byte[] shader_updated);
+           // control.SetConstants(shader, constants, out byte[] shader_updated);
 
-            var mem = new MemoryStream();
-            control.Save(mem);
+          //  var mem = new MemoryStream();
+          //  control.Save(mem);
 
-            binary.ByteCode = shader_updated.ToArray();
-            binary.ControlCode = mem.ToArray();
+            binary.ByteCode = shader_bin.ToArray();
+            binary.ControlCode = control_bin.ToArray();
 
             return new ShaderOutput()
             {
-                ShaderCode = shader_updated,
-                Control = mem.ToArray(),
+                ShaderCode = binary.ByteCode,
+                Control = binary.ControlCode,
             };
         }
 
@@ -84,7 +85,7 @@ namespace ShaderLibrary.CompileTool
 
         static bool ExecuteCommand(string Command)
         {
-            ProcessStartInfo info = new ProcessStartInfo("cmd.exe", "/K " + Command);
+            ProcessStartInfo info = new ProcessStartInfo("cmd.exe", "/C " + Command);
             info.CreateNoWindow = true;
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
@@ -97,7 +98,8 @@ namespace ShaderLibrary.CompileTool
             cmd.StartInfo = info;
             cmd.OutputDataReceived += (sender, e) =>
             {
-
+                if (!string.IsNullOrEmpty(e.Data))
+                    Console.WriteLine(e.Data);
             };
             cmd.ErrorDataReceived += (sender, e) =>
             {
