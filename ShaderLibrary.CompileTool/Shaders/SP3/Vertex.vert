@@ -45,10 +45,10 @@ const int MAX_BONE_COUNT = 120;
 
 layout(binding = 0, std140) uniform Context
 {
-    mat3x4 cView;
+    mat3x4 cView; 
     mat4 cViewProj;
     mat4 cProj;
-    mat3x4 cViewInv;
+    mat3x4 cViewInv; 
     vec4 cNearFar; //znear, zfar, ratio, inverse ratio
     vec4 cScreen; //screen width/height
     vec4 cDist; //zfar - znear
@@ -57,23 +57,19 @@ layout(binding = 0, std140) uniform Context
     vec4 cc;
     vec4 sf;
     mat3x4 cPrevView;
-    mat4 cPrevViewProj;
-    mat4 cPrevProj;
-    mat3x4 cPrevViewInv;
-    mat3x4 cProjectionTexMtx0;
-    mat3x4 cProjectionTexMtx1;
-    vec4 cProjParams;
-    mat4 cCascadeMtx0;
+    mat4 cPrevViewProj; // [24]
+    mat4 cPrevProj; // [28]
+    mat3x4 cPrevViewInv; // [31]
+    mat3x4 cProjectionTexMtx0; // [35]
+    mat3x4 cProjectionTexMtx1; // [38]
+    vec4 cProjParams; // [39]
+    mat4 cCascadeMtx0; // [40]
     mat4 cCascadeMtx1;
     mat4 cCascadeMtx2;
-    mat4 cCascadeMtx3;
-
-    vec4 Unk0;
-    vec4 Unk1;
-    vec4 Unk2;
-    vec4 Unk3;
-    vec4 Unk4;
-    vec4 Unk5;
+    mat4 cCascadeMtx3; // [52]
+    vec4 cShadowParam1; // [56]
+    vec4 cShadowParam2; // [57]
+    mat4 cDepthShadow; // [60]
 
     vec4 cCubemapHDR;
 } context;
@@ -426,18 +422,24 @@ layout(binding = 2, std140) uniform Mat
     mat2x4 tex_mtx0;
     mat2x4 tex_mtx1;
     mat2x4 tex_mtx2;
+
     float tex_repetition_noise_division_num;
     float tex_repetition_noise_scale;
     float tex_repetition_angle_deg;
     float model_y_fog_up_start;
+
     vec4 model_y_fog_up_end;
     vec4 model_y_fog_up_color;
+
     vec3 model_y_fog_up_dir;
     float model_y_fog_down_start;
+
     vec4 model_y_fog_down_end;
     vec4 model_y_fog_down_color;
+
     vec3 model_y_fog_down_dir;
     float dynamic_vert_alpha_coeff;
+
     float fade_dither_alpha;
     float fade_dither_manual_alpha;
     vec2 camera_xlu_alpha;
@@ -530,13 +532,17 @@ layout (location = 2) out vec4 fTangents;
 layout (location = 3) out vec4 fVertexViewPos; // vertex view pos
 layout (location = 4) out vec4 fViewDirection; // uses view mtx pos and vertex pos (_57 in debug shader)
 layout (location = 5) out vec4 fVertexWorldPos;
-layout (location = 6) out vec4 fScreenCoords;
+layout (location = 6) out vec4 fProjectionCoord;
+
+
+
 
 layout (location = 7) out vec4 fFogDir;
 layout (location = 8) out vec4 fColor;
 layout (location = 9) out vec4 fFogParams;
 
 // Todo find right location
+layout (location = 13) out vec4 fScreenCoords;
 layout (location = 14) out vec4 fTexCoordsBake;
 layout (location = 15) out vec4 fTexCoords23;
 
@@ -643,6 +649,8 @@ void main()
 
     fVertexWorldPos = gl_Position;
 
+    fProjectionCoord = (vec4(position.xyz, 1.0) * mat4(context.cProjectionTexMtx0));
+
     if (SCREEN_COORDS)
     {
 	    vec3 ndc = gl_Position.xyz / gl_Position.w; //perspective divide/normalize
@@ -670,7 +678,7 @@ void main()
        texcoord_select_res2 == 2 ||
        texcoord_select_opacity == 2)
     {
-	    fTexCoords23.xy = get_tex_coord(aTexCoord2.xy, mat.tex_mtx1, texcoord_calc_texcoord2);	
+	    fTexCoords0.zw = get_tex_coord(aTexCoord2.xy, mat.tex_mtx1, texcoord_calc_texcoord2);	
     }
 
     if (texcoord_select_albedo == 3 || 
@@ -688,7 +696,7 @@ void main()
        texcoord_select_res2 == 3 ||
        texcoord_select_opacity == 3)
     {
-	    fTexCoords23.zw = get_tex_coord(aTexCoord3.xy, mat.tex_mtx2, texcoord_calc_texcoord3);	
+	    fTexCoords23.xy = get_tex_coord(aTexCoord3.xy, mat.tex_mtx2, texcoord_calc_texcoord3);	
     }
 
 	//bake texCoords
