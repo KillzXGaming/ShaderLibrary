@@ -24,7 +24,15 @@ namespace EffectLibraryTest
             File.WriteAllText(filePath, GetCode(shaderCode, reflect));
         }
 
-        static string GetCode(BnshFile.ShaderCode shaderCode, BnshFile.ShaderReflectionData reflect = null)
+        public static void ExportPreviewed(ShaderModel shader, BnshFile.ShaderCode shaderCode, BnshFile.ShaderReflectionData reflect, string filePath)
+        {
+            if (shaderCode == null)
+                return;
+
+            File.WriteAllText(filePath, ShaderLabelUtil.PreviewUniforms(GetCode(shaderCode, reflect), shader, reflect));
+        }
+
+        public static string GetCode(BnshFile.ShaderCode shaderCode, BnshFile.ShaderReflectionData reflect = null)
         {
             var control_code = new ControlShader(shaderCode.ControlCode);
 
@@ -104,7 +112,9 @@ namespace EffectLibraryTest
                         foreach (var sampler in symbols)
                         {
                             if (line.Contains(sampler.Key))
+                            {
                                 line = line.Replace(sampler.Key, sampler.Value);
+                            }
                         }
                         sb.AppendLine(line);
                     }
@@ -166,7 +176,7 @@ namespace EffectLibraryTest
                             if (slot != 1) //constant buffer skip
                             {
                                 //swap binding id with slot id
-                                line = line.Replace($"binding = {slot + 1}", $"binding = {slot - 2}");
+                                line = line.Replace($"binding = {slot + 1}", $"binding = {slot - 3}");
                             }
 
                             block_bind++;

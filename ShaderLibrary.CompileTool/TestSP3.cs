@@ -66,27 +66,19 @@ namespace ShaderLibrary
 
                     var idx = bfsha.ShaderModels[0].Programs[program].VariationIndex;
 
-                    ShaderExtract.ExportPreviewed(bfsha.ShaderModels[0],
-                        var.BinaryProgram.VertexShader,
-                        var.BinaryProgram.VertexShaderReflection, "test.vert");
 
                     Dictionary<string, string> macros = new Dictionary<string, string>();
                     foreach (var option in material.ShaderAssign.ShaderOptions)
                         macros.Add(option.Key, option.Value);
 
                     string vertex = CompileMacros(macros, File.ReadAllText("Shaders\\SP3\\Vertex.vert"));
+                    var pixel = ShaderExtract.GetCode(var.BinaryProgram.FragmentShader); // Use original
 
                     UAMShaderCompiler.CompileByText(var.BinaryProgram.VertexShader, vertex, "vert");
+                    UAMShaderCompiler.CompileByText(var.BinaryProgram.FragmentShader, pixel, "frag");
 
-                    ShaderExtract.ExportPreviewed(bfsha.ShaderModels[0],
-                        var.BinaryProgram.VertexShader,
-                        var.BinaryProgram.VertexShaderReflection, "testRB.vert");
+                    File.WriteAllText("test.frag", pixel);
 
-                    //ShaderExtract.Export(var.BinaryProgram.VertexShader,"testRB.vert");
-
-                    
-
-                    return;
                     /*
                                         foreach (var attr in var.BinaryProgram.VertexShaderReflection.Inputs)
                                         {
@@ -99,7 +91,7 @@ namespace ShaderLibrary
                 }
             }
 
-         //   resFile.Save(res_path);
+            bfsha.Save(shader_path.Replace("bfsha", "NEW.bfsha"));
         }
 
         static Dictionary<string, string> GetOptionSearch(Material material, Shape shape, string pipeline = "gsys_assign_material")
