@@ -14,9 +14,9 @@ layout (binding = 0, std140) uniform MdlEnvView
     vec3        cFogColor[ FOG_MAX ];
     float       cFogStart[ FOG_MAX ];
     float       cFogStartEndInv[ FOG_MAX ];
-    vec4        cShadowMtx[ 4 ];
+    mat4x4        cShadowMtx;
     vec3        cFogDir[ FOG_MAX ];
-    vec4        cTexProjMtx[ 4 ];
+    mat4x4        cTexProjMtx;
 };
 
 layout (binding = 1, std140) uniform MdlMtx
@@ -87,9 +87,6 @@ vec3 ReconstructNormal(in vec2 t_NormalXY) {
 
 vec3 CalculateNormals(vec3 normals, vec4 tangents, vec4 bitangents, vec2 normal_map)
 {
-    if (!enable_normal) //use vertex normals
-        return normals;
-
     vec3 N = vec3(normals);
     vec3 T = vec3(tangents.xyz);
     vec3 B = vec3(bitangents.xyz);

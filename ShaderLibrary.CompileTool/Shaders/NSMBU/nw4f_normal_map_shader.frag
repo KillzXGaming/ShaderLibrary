@@ -35,7 +35,7 @@ void main()
     vec4 specularMask  = texture(cSpecMaskMap0, fTexCoordSpecMask.xy).xyzw;
 
 	// Fragment normals using TBN, blue channel calculated
-	vec3 normals = CalculateNormals(fNormals.xyz, fTangents, fTangents, normalMap.xy);
+	vec3 normals = CalculateNormals(fNormals.xyz, fTangents, fBitangents, normalMap.xy);
 
 	// Sphere maps
 	vec2 sphere_coords = calc_sphere_coords(normals.xyz);
