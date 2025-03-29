@@ -104,18 +104,6 @@ vec2 calc_sphere_coords(vec3 view_normal)
 	return view_normal.xy * vec2(0.5) + vec2(0.5,-0.5);
 }
 
-vec4 calc_fog(vec3 pos, int idx)
-{
-	float z = dot(cFogDir[idx].xyz, pos.xyz);
-
-	vec4 fog_output = vec4(cFogColor[idx].xyz, 1.0);
-	float amount = clamp(z * cFogStartEndInv[idx] + cFogStart[idx], 0.0, 1.0);
-
-	fog_output.a = amount * amount * cFogColor[idx].a;
-
-	return fog_output;
-}
-
 vec4 skin(vec3 pos, ivec4 index)
 {
     vec4 newPosition = vec4(pos.xyz, 1.0);
@@ -126,13 +114,13 @@ vec4 skin(vec3 pos, ivec4 index)
         newPosition = vec4(pos, 1.0) * mat4(cMtxPalette[index.x]);
 
     if (cWeightNum >  1)
-        newPosition =  vec4(pos, 1.0) * mat4(cMtxPalette[index.x]) * vBoneWeight.x;
+        newPosition =  vec4(pos, 1.0) * mat4(cMtxPalette[index.x]) * aBoneWeight.x;
     if (cWeightNum >= 2)
-        newPosition += vec4(pos, 1.0) * mat4(cMtxPalette[index.y]) * vBoneWeight.y;
+        newPosition += vec4(pos, 1.0) * mat4(cMtxPalette[index.y]) * aBoneWeight.y;
     if (cWeightNum >= 3)
-        newPosition += vec4(pos, 1.0) * mat4(cMtxPalette[index.z]) * vBoneWeight.z;
+        newPosition += vec4(pos, 1.0) * mat4(cMtxPalette[index.z]) * aBoneWeight.z;
     if (cWeightNum >= 4)
-        newPosition += vec4(pos, 1.0) * mat4(cMtxPalette[index.w]) * vBoneWeight.w;
+        newPosition += vec4(pos, 1.0) * mat4(cMtxPalette[index.w]) * aBoneWeight.w;
         
     return newPosition;
 }
@@ -147,13 +135,13 @@ vec3 skinNormal(vec3 nr, ivec4 index)
         newNormal =  nr * mat3(cMtxPalette[index.x]);
 
     if (cWeightNum >  1)
-        newNormal =  nr * mat3(cMtxPalette[index.x]) * vBoneWeight.x;
+        newNormal =  nr * mat3(cMtxPalette[index.x]) * aBoneWeight.x;
     if (cWeightNum >= 2)
-        newNormal += nr *  mat3(cMtxPalette[index.y]) * vBoneWeight.y;
+        newNormal += nr *  mat3(cMtxPalette[index.y]) * aBoneWeight.y;
     if (cWeightNum >= 3)
-        newNormal += nr * mat3(cMtxPalette[index.z]) * vBoneWeight.z;
+        newNormal += nr * mat3(cMtxPalette[index.z]) * aBoneWeight.z;
     if (cWeightNum >= 4)
-        newNormal += nr * mat3(cMtxPalette[index.w]) * vBoneWeight.w;
+        newNormal += nr * mat3(cMtxPalette[index.w]) * aBoneWeight.w;
     
     return newNormal;
 }
