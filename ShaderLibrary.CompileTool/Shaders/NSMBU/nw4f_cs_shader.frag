@@ -9,15 +9,14 @@
 #define gsys_renderstate 0
 #define enable_debug_flag 0
 
-#define var_normal_map 0
-#define var_spec_mask 0
-#define var_indirect_light_type 0
-#define var_ao_type 0
+#define ENABLE_NORMAL_MAP 0
+#define ENABLE_SPEC_MASK 0
+#define INDIRECT_LIGHT_TYPE 0
+#define AO_TYPE 0
 
-#define var_shadow 0
-#define var_proj_fog 0
-#define var_color_anim 0
-#define var_edge_mask 0
+#define ENABLE_SHADOW 0
+#define ENABLE_PROJ_FOG 0
+#define ENABLE_ADD_COLOR 0
 
 layout (binding = 1) uniform sampler2D cNormalMap0;
 layout (binding = 6) uniform sampler2D cBakeMap1;
@@ -53,12 +52,12 @@ void main()
 	float specularMask = texture(cSpecMaskMap0, fTexCoordSpecMask.xy).x;
 
 	float specular = 0.0;
-	if (var_spec_mask == 1)
+	if (ENABLE_SPEC_MASK == 1)
 		 specular  = specularMask;
 
 	// Fragment normals using TBN, blue channel calculated
 	vec3 normals = fNormals.xyz;
-	if (var_normal_map == 1)
+	if (ENABLE_NORMAL_MAP == 1)
 		 normals = CalculateNormals(fNormals.xyz, fTangents, fBitangents, normalMap.xy);
 
 	// Sphere maps
@@ -68,15 +67,15 @@ void main()
 
 	vec3 shadow = vec3(1.0);
 
-	// var_ao_type 1 == vertex colors
-	// var_ao_type 2 == texture bake0
-	if (var_ao_type == 1)
+	// AO_TYPE 1 == vertex colors
+	// AO_TYPE 2 == texture bake0
+	if (AO_TYPE == 1)
 		shadow = mix(vec3(1.0) - material.shadow_color.rgb, fVtxColor0.rgb, fVtxColor0.rgb);
-	if (var_ao_type == 2)
+	if (AO_TYPE == 2)
 		shadow = mix(vec3(1.0) - material.shadow_color.rgb, bake_shadow.rgb, bake_shadow.rgb);
 
 	// Shadow cast
-	if (var_shadow == 1)
+	if (ENABLE_SHADOW == 1)
 	{
 		float depth_shadow = texture(cShadowMap, fShadowCoords.xyz * (gl_FragCoord.w * (1.0 / fShadowCoords.w))).x;
 		shadow = mix(vec3(1.0) - material.depth_shadow_color.rgb, vec3(depth_shadow), depth_shadow);
@@ -85,11 +84,11 @@ void main()
 
 	vec3 lighting = vec3(1.0) - shadow * colorOutput.a;
 	// Bake lighting
-	if (var_indirect_light_type == 1)
+	if (INDIRECT_LIGHT_TYPE == 1)
 		 lighting += bake_light.rgb * bake_light.a * material.gsys_bake_light_scale.rgb ;
 
 	// Color
-	if (var_color_anim == 1)
+	if (ENABLE_ADD_COLOR == 1)
 	{
 		colorOutput.rgb += material.color0.rgb;
 		colorOutput.a *= material.color0.a;
@@ -99,7 +98,7 @@ void main()
 	colorOutput.rgb += lighting;
 
 	// Fog
-	if (var_proj_fog == 1)
+	if (ENABLE_PROJ_FOG == 1)
 	{	
 		vec4 fogProj = texture(cTexMapProjFog, fFogProjCoords.xy * (gl_FragCoord.w * (1.0 / fFogProjCoords.w)));
 		// Color output with fog applied

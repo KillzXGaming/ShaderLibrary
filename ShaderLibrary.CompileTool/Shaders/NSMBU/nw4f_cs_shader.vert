@@ -9,9 +9,9 @@
 #define gsys_renderstate 0
 #define enable_debug_flag 0
 
-#define var_shadow 0
-#define var_proj_fog 0
-#define var_ao_type 0
+#define ENABLE_SHADOW 0
+#define ENABLE_PROJ_FOG 0
+#define AO_TYPE 0
 
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec3 aNormal;
@@ -64,14 +64,14 @@ void main()
     fTexCoordBake0.xy = CalcScaleBias(aTexCoordBake0.xy, material.gsys_bake_st0);
 
 	// Shadow
-	if (var_shadow == 1)
+	if (ENABLE_SHADOW == 1)
 		fShadowCoords  = worldPosition * cShadowMtx;
 	// Fog proj
-	if (var_proj_fog == 1)
+	if (ENABLE_PROJ_FOG == 1)
 		fFogProjCoords = worldPosition * cTexProjMtx;
 
 	// Vertex color
-	if (var_ao_type == 1)
+	if (AO_TYPE == 1)
 		fVtxColor0 = aColor0;
     return;
 }
