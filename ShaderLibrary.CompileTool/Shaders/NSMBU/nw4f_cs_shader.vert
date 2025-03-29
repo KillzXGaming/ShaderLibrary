@@ -64,14 +64,18 @@ void main()
     fTexCoordBake0.xy = CalcScaleBias(aTexCoordBake0.xy, material.gsys_bake_st0);
 
 	// Shadow
-	if (ENABLE_SHADOW == 1)
+	#if (ENABLE_SHADOW == 1)
 		fShadowCoords  = worldPosition * cShadowMtx;
-	// Fog proj
-	if (ENABLE_PROJ_FOG == 1)
-		fFogProjCoords = worldPosition * cTexProjMtx;
+	#endif
 
-	// Vertex color
-	if (AO_TYPE == 1)
+	// Fog proj
+	#if (ENABLE_PROJ_FOG == 1)
+		fFogProjCoords = worldPosition * cTexProjMtx;
+	#endif
+
+	// AO as vertex colors
+	#if (AO_TYPE == 1)
 		fVtxColor0 = aColor0;
+	#endif
     return;
 }

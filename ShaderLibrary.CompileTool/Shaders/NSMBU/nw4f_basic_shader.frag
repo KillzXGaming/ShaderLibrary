@@ -21,7 +21,6 @@ layout (location = 0) in vec2 fTexCoords0;
 layout (location = 1) in vec4 fNormals;
 layout (location = 2) in vec4 fVtxColor0;
 layout (location = 3) in vec4 fFogColor;
-layout (location = 4) in vec4 fTangents;
 
 layout (location = 0) out vec4 FragData0;
 layout (location = 1) out vec4 FragData1;

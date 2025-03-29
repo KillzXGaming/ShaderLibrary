@@ -52,13 +52,15 @@ void main()
 	float specularMask = texture(cSpecMaskMap0, fTexCoordSpecMask.xy).x;
 
 	float specular = 0.0;
-	if (ENABLE_SPEC_MASK == 1)
+	#if (ENABLE_SPEC_MASK == 1)
 		 specular  = specularMask;
+	#endif
 
 	// Fragment normals using TBN, blue channel calculated
 	vec3 normals = ReconstructNormal(fNormals.xy);
-	if (ENABLE_NORMAL_MAP == 1)
+	#if  (ENABLE_NORMAL_MAP == 1)
 		 normals = CalculateNormals(fNormals.xyz, fTangents, fBitangents, normalMap.xy);
+	#endif
 
 	// Sphere maps
 	vec2 sphere_coords = calc_sphere_coords(normals.xyz);
@@ -69,50 +71,52 @@ void main()
 
 	// AO_TYPE 1 == vertex colors
 	// AO_TYPE 2 == texture bake0
-	if (AO_TYPE == 1)
+	#if (AO_TYPE == 1)
 		shadow = mix(vec3(1.0) - material.shadow_color.rgb, fVtxColor0.rgb, fVtxColor0.rgb);
-	if (AO_TYPE == 2)
+	#endif
+	#if (AO_TYPE == 2)
 		shadow = mix(vec3(1.0) - material.shadow_color.rgb, bake_shadow.rgb, bake_shadow.rgb);
-
+	#endif
 	// Shadow cast
-	if (ENABLE_SHADOW == 1)
-	{
+	#if (ENABLE_SHADOW == 1)
 		float depth_shadow = texture(cShadowMap, fShadowCoords.xyz * (gl_FragCoord.w * (1.0 / fShadowCoords.w))).x;
 		shadow = mix(vec3(1.0) - material.depth_shadow_color.rgb, vec3(depth_shadow), depth_shadow);
 		shadow *= material.depth_shadow_color.a;
-	}
+	#endif
 
 	vec3 lighting = vec3(1.0) - shadow * colorOutput.a;
 	// Bake lighting
-	if (INDIRECT_LIGHT_TYPE == 1)
+	#if (INDIRECT_LIGHT_TYPE == 1)
 		 lighting += bake_light.rgb * bake_light.a * material.gsys_bake_light_scale.rgb ;
+	#endif
 
 	// Color
-	if (ENABLE_ADD_COLOR == 1)
+	#if (ENABLE_ADD_COLOR == 1)
 	{
 		colorOutput.rgb += material.color0.rgb;
 		colorOutput.a *= material.color0.a;
 	}
+	#endif
+
 	colorOutput.rgb *= diffuseLight.rgb;
 	colorOutput.rgb += specular * specularLight.rgb;
 	colorOutput.rgb += lighting;
 
 	// Fog
-	if (ENABLE_PROJ_FOG == 1)
-	{	
+
+	// AO as vertex colors
+	#if (ENABLE_PROJ_FOG == 1)
 		vec4 fogProj = texture(cTexMapProjFog, fFogProjCoords.xy * (gl_FragCoord.w * (1.0 / fFogProjCoords.w)));
 		// Color output with fog applied
 		FragData0.rgb = mix(colorOutput.rgb, fogProj.rgb, fogProj.a);
 		FragData0.a = colorOutput.a;
-	}
-	else
-	{		
+	#else
 		FragData0.rgb = colorOutput.rgb;
 		FragData0.a = colorOutput.a;
-	}
+	#endif
 
 	// Normal output
-	FragData1.rgb = normalize( fNormals.rgb ) * 0.5 + 0.5;
+	FragData1.rgb = normalize(normals.rgb) * 0.5 + 0.5;
 	FragData1.a = 1.0;
     return;
 }

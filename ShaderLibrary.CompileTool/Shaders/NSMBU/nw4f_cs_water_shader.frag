@@ -30,8 +30,9 @@ void main()
 
 	// Fragment normals using TBN, blue channel calculated
 	vec3 normals = ReconstructNormal(fNormals.xy);
-	if (ENABLE_NORMAL_MAP == 1)
+	#if (ENABLE_NORMAL_MAP == 1)
 		  normals = CalculateNormals(fNormals.xyz, fTangents, fBitangents, normalMap.xy);
+	#endif
 
 	// Sphere maps
 	vec2 sphere_coords = calc_sphere_coords(normals.xyz);

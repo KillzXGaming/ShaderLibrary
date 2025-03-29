@@ -34,13 +34,15 @@ void main()
 	float specularMask = texture(cSpecMaskMap0, fTexCoordSpecMask.xy).x;
 
 	float specular = 0.0;
-	if (ENABLE_SPEC_MASK == 1)
+	#if (ENABLE_SPEC_MASK == 1)
 		 specular  = specularMask;
+	#endif
 
 	// Fragment normals using TBN, blue channel calculated
 	vec3 normals = ReconstructNormal(fNormals.xy);
-	if (ENABLE_NORMAL_MAP == 1)
+	#if (ENABLE_NORMAL_MAP == 1)
 		 normals = CalculateNormals(fNormals.xyz, fTangents, fBitangents, normalMap.xy);
+	#endif
 
 	// Sphere maps
 	vec2 sphere_coords = calc_sphere_coords(normals.xyz);
@@ -50,8 +52,10 @@ void main()
 
 	colorOutput.rgb *= diffuseLight.rgb;
 	colorOutput.rgb += specular * specularLight.rgb + envLight.rgb;
-	if (ENABLE_VERTEX_COLOR == 1)
+
+	#if (ENABLE_VERTEX_COLOR == 1)
 		colorOutput.rgb *= fVtxColor0.rgb;
+	#endif
 
 	// Normal output
 	FragData1.rgb = normalize(normals.rgb) * 0.5 + 0.5;
