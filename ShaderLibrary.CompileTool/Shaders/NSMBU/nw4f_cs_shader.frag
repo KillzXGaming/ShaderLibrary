@@ -56,7 +56,7 @@ void main()
 		 specular  = specularMask;
 
 	// Fragment normals using TBN, blue channel calculated
-	vec3 normals = fNormals.xyz;
+	vec3 normals = ReconstructNormal(fNormals.xy);
 	if (ENABLE_NORMAL_MAP == 1)
 		 normals = CalculateNormals(fNormals.xyz, fTangents, fBitangents, normalMap.xy);
 
