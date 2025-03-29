@@ -2,12 +2,9 @@
 
 #include "shared.glsl"
 
-#define enable_vertex_alpha 0
-#define material_alpha 0
-#define gsys_alpha_test_enable 0
-#define gsys_alpha_test_func 6
-#define gsys_renderstate 0
-#define enable_debug_flag 0
+#define ENABLE_LIGHT_MAP 0
+#define ENABLE_NORMAL_MAP 0
+#define ENABLE_SPEC_MASK 0
 
 layout (binding = 1) uniform sampler2D cNormalMap0;
 layout (binding = 2) uniform sampler2D cSpecMaskMap0;
