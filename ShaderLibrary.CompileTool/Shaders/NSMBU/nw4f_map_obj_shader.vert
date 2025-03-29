@@ -56,7 +56,8 @@ void main()
     fTexCoordBake0.xy = CalcScaleBias(aTexCoordBake0.xy, material.gsys_bake_st0);
 
 	// Vertex color
-	if (ENABLE_VERTEX_COLOR == 1)
+	#if (ENABLE_VERTEX_COLOR == 1)
 		fVtxColor0 = aColor0;
+	#endif
     return;
 }
