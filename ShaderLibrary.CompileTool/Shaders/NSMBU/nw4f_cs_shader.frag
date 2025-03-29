@@ -88,7 +88,11 @@ void main()
 		 lighting += bake_light.rgb * bake_light.a * material.gsys_bake_light_scale.rgb ;
 
 	// Color
-	colorOutput.rgb += material.color0.rgb;
+	if (var_color_anim == 1)
+	{
+		colorOutput.rgb += material.color0.rgb;
+		colorOutput.a *= material.color0.a;
+	}
 	colorOutput.rgb *= diffuseLight.rgb;
 	colorOutput.rgb += specular * specularLight.rgb;
 	colorOutput.rgb += lighting;
@@ -99,6 +103,7 @@ void main()
 	// Color output with fog applied
 	FragData0.rgb = mix(colorOutput.rgb, fogProj.rgb, fogProj.a);
 	FragData0.a = colorOutput.a;
+
 	// Normal output
 	FragData1.rgb = normalize( fNormals.rgb ) * 0.5 + 0.5;
 	FragData1.a = 1.0;
