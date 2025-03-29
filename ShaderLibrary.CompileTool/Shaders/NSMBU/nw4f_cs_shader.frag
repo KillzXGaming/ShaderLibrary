@@ -80,9 +80,10 @@ void main()
 	{
 		float depth_shadow = texture(cShadowMap, fShadowCoords.xyz * (gl_FragCoord.w * (1.0 / fShadowCoords.w))).x;
 		shadow = mix(vec3(1.0) - material.depth_shadow_color.rgb, vec3(depth_shadow), depth_shadow);
+		shadow *= material.depth_shadow_color.a;
 	}
 
-	vec3 lighting = vec3(1.0) - shadow;
+	vec3 lighting = vec3(1.0) - shadow * colorOutput.a;
 	// Bake lighting
 	if (var_indirect_light_type == 1)
 		 lighting += bake_light.rgb * bake_light.a * material.gsys_bake_light_scale.rgb ;
@@ -98,11 +99,18 @@ void main()
 	colorOutput.rgb += lighting;
 
 	// Fog
-	vec4 fogProj = texture(cTexMapProjFog, fFogProjCoords.xy * (gl_FragCoord.w * (1.0 / fFogProjCoords.w)));
-
-	// Color output with fog applied
-	FragData0.rgb = mix(colorOutput.rgb, fogProj.rgb, fogProj.a);
-	FragData0.a = colorOutput.a;
+	if (var_proj_fog == 1)
+	{	
+		vec4 fogProj = texture(cTexMapProjFog, fFogProjCoords.xy * (gl_FragCoord.w * (1.0 / fFogProjCoords.w)));
+		// Color output with fog applied
+		FragData0.rgb = mix(colorOutput.rgb, fogProj.rgb, fogProj.a);
+		FragData0.a = colorOutput.a;
+	}
+	else
+	{		
+		FragData0.rgb = colorOutput.rgb;
+		FragData0.a = colorOutput.a;
+	}
 
 	// Normal output
 	FragData1.rgb = normalize( fNormals.rgb ) * 0.5 + 0.5;
