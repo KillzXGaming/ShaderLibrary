@@ -78,7 +78,7 @@ void main()
 	// Shadow cast
 	if (var_shadow == 1)
 	{
-		float depth_shadow    = texture(cShadowMap, fShadowCoords.xyz * (gl_FragCoord.w * (1.0 / fShadowCoords.w).x;
+		float depth_shadow = texture(cShadowMap, fShadowCoords.xyz * (gl_FragCoord.w * (1.0 / fShadowCoords.w))).x;
 		shadow = mix(vec3(1.0) - material.depth_shadow_color.rgb, vec3(depth_shadow), depth_shadow);
 	}
 
