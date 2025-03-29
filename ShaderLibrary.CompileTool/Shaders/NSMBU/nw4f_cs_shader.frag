@@ -9,7 +9,7 @@
 #define gsys_renderstate 0
 #define enable_debug_flag 0
 
-#define var_normal_map = 0
+#define var_normal_map 0
 #define var_spec_mask 0
 #define var_indirect_light_type 0
 #define var_ao_type 0
