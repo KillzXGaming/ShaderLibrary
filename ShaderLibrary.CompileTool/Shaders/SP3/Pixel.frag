@@ -631,7 +631,7 @@ void main()
     }
     vec3 diffuse = albedo.rgb; 
     // Apply light
-    if (enable_shading == 1)
+    if (enable_shading)
         diffuse.rgb += lighting.rgb;
 
     // Final output
