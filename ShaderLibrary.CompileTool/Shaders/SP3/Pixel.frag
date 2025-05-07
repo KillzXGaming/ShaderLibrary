@@ -27,6 +27,14 @@
 #define enable_shading true
 #define comp_paint_type 0
 
+// Todo these could be wrong for calc, todo verify
+#define CALC_MULTIPLY 2 // A and B multiples unless A/B set to 0
+#define blitz_calc_color0_calc_type 0
+
+#define COLOR_TYPE_TEX_RESOURCE 9
+#define COLOR_TYPE_CONSTANT0 100
+#define blitz_calc_color0_B 0
+
 #define enable_fog_y true
 #define enable_fog_z true
 
@@ -538,6 +546,13 @@ layout(location = 6) in vec4 fProjectionCoord; // projected position (maybe for 
 
 layout(location = 0) out vec4 oFragColor;
 
+vec4 GetColorOutput(uint value)
+{
+    if (value == 100) mat.const_color0.rgba;
+
+    return vec4(0.0);
+}
+
 vec3 ReconstructNormal(in vec2 t_NormalXY) {
     float t_NormalZ = sqrt(clamp(1.0 - dot(t_NormalXY.xy, t_NormalXY.xy), 0.0, 1.0));
     return vec3(t_NormalXY.xy, t_NormalZ);
@@ -629,7 +644,7 @@ void main()
         float edge_light_amount = exp2(log2(clamp(1.0 - L, 0.0, 1.0)) * mat.edge_light_powerY) * mat.edge_light_intens;
         lighting += edge_light_amount * mat.edge_light_color.rgb;
     }
-    vec3 diffuse = albedo.rgb; 
+    vec3 diffuse = albedo.rgb * kD; 
     // Apply light
     if (enable_shading)
         diffuse.rgb += lighting.rgb;
