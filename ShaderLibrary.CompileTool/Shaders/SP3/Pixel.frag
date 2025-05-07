@@ -10,10 +10,12 @@
 
 #define enable_bake_shadow 0
 #define enable_bake_ao 0
+#define enable_albedo_tex 1
 #define enable_roughness_map 1
 #define enable_metalness_map 1
 #define enable_edge_light 1
 #define enable_normal_map 0
+#define enable_shading 1
 
 #define bake_light_type -1
 #define bake_shadow_type -1
@@ -575,7 +577,9 @@ void main()
     paint = min(paint, 0.3) + blitzUBO0.data[21].w;
 
     // Albedo
-    vec4 albedo = texture(cTexAlbedo, fTexCoords01.xy);
+    vec4 albedo = mat.albedo_color.rgba;
+    if (enable_albedo_tex == 1)
+       albedo =  texture(cTexAlbedo, fTexCoords01.xy);
 
     if (enable_roughness_map == 1)
          roughness = max(texture(cTexRoughness, fTexCoords01.xy).x, 0.0001);
@@ -603,7 +607,8 @@ void main()
     }
     vec3 diffuse = albedo.rgb; 
     // Apply light
-    diffuse.rgb += lighting.rgb;
+    if (enable_shading == 1)
+        diffuse.rgb += lighting.rgb;
     // Final output
     oFragColor.rgb = diffuse + specular;
     oFragColor.a = 1.0;
