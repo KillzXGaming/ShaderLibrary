@@ -10,6 +10,10 @@
 
 #define enable_bake_shadow 0
 #define enable_bake_ao 0
+#define enable_roughness_map 1
+#define enable_metalness_map 1
+#define enable_edge_light 1
+#define enable_normal_map 0
 
 #define bake_light_type -1
 #define bake_shadow_type -1
@@ -519,11 +523,58 @@ vec3 CalculateNormals(vec3 normals, vec4 normal_map)
     return normalize(tbn_matrix * tangent_normal).xyz;
 }
 
+float GetCubemapRange(float roughness)
+{
+    // Map to cubemap range
+    return (1.0 - cos(roughness * 3.14159274)) * 5.5;
+}
+
 void main()
 {   
-    float paint = texture(cTexCompPaint, fTexCoords01.xy).x + mat.two_color_complement_paint_intensity;
-    paint = min(paint, 0.3) + BlitzUBO0.data[21].w;
+    float roughness = 0.0;
+    float metalness = mat.metalness.x;
+    vec3 lighting = vec3(0.0);
 
-    oFragColor.rgb = fNormals.rgb;
+    vec3 N = fNormals.rgb;
+    if (enable_normal_map == 1)
+         N = CalculateNormals(fNormals.rgb, texture(cTexNormal, fTexCoords01.xy));
+
+    // Paint
+    float paint = texture(cTexCompPaint, fTexCoords01.xy).x + mat.two_color_complement_paint_intensity;
+    paint = min(paint, 0.3) + blitzUBO0.data[21].w;
+
+    // Albedo
+    vec4 albedo = texture(cTexAlbedo, fTexCoords01.xy);
+
+    if (enable_roughness_map == 1)
+         roughness = max(texture(cTexRoughness, fTexCoords01.xy).x, 0.0001);
+    if (enable_metalness_map == 1)
+         metalness = texture(cTexMetalness, fTexCoords01.xy).x;
+
+    float L = dot(fNormals.rgb, normalize(fViewDirection.xyz));
+    vec2 brdf = texture(cEnvBRDFMap, vec2(L, 1.0 - roughness)).xy;
+
+    vec4 prefilterEnv = texture(cPrefilEnvMapArray, vec4(N.rgb, GetCubemapRange(roughness)));
+
+    //// base reflectivity
+    vec3 F0  = mix(vec3(0.04), albedo.rgb, metalness).xyz;
+    vec3 kS = F0; // specular reflection at normal incidence
+    vec3 kD = 1.0 - kS; // diffuse reflection factor
+    kD *= 1.0 - metalness; // metals have no diffuse
+
+    // specular IBL
+    vec3 specular = prefilterEnv.rgb * (kS * brdf.x + brdf.y);
+
+    // Edge lighting
+    if (enable_edge_light == 1)
+    {
+        float edge_light_amount = exp2(log2(clamp(1.0 - L, 0.0, 1.0)) * mat.edge_light_powerY) * mat.edge_light_intens;
+        lighting += edge_light_amount * mat.edge_light_color.rgb;
+    }
+    vec3 diffuse = albedo.rgb; 
+    // Apply light
+    diffuse.rgb += lighting.rgb;
+    // Final output
+    oFragColor.rgb = diffuse + specular;
     oFragColor.a = 1.0;
 }
