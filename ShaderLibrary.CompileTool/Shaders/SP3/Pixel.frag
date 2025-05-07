@@ -5,20 +5,34 @@
 
 #define gsys_normalmap_BC1 false
 #define enable_normal true
+#define enable_emission true
 
 #define gsys_assign_type gsys_assign_material
 
-#define enable_bake_shadow 0
-#define enable_bake_ao 0
-#define enable_albedo_tex 1
-#define enable_roughness_map 1
-#define enable_metalness_map 1
-#define enable_edge_light 1
-#define enable_normal_map 0
-#define enable_shading 1
+#define enable_bake_shadow false
+#define enable_bake_ao false
+
+#define enable_albedo_tex true
+#define enable_roughness_map true
+#define enable_metalness_map true
+#define enable_emission_map false
+#define enable_envmap_emission false
+#define enable_correction_in_envmap false
+#define enable_edge_transmission false
+#define enable_static_depth_shadow false
+#define enable_dynamic_depth_shadow false
+#define enable_projection_shadow false
+#define enable_edge_light true
+#define enable_normal_map false
+#define enable_shading true
+#define comp_paint_type 0
+
+#define enable_fog_y true
+#define enable_fog_z true
 
 #define bake_light_type -1
 #define bake_shadow_type -1
+
 
 const int MAX_BONE_COUNT = 120;
 
@@ -563,11 +577,12 @@ void main()
 {   
     float roughness = 0.0;
     float metalness = mat.metalness.x;
+    vec3 emission = mat.emission_color.rgb * mat.emission_intensity.xyz;
     vec3 lighting = vec3(0.0);
     vec3 dir = normalize(fViewDirection.xyz);
 
     vec3 N = fNormals.rgb;
-    if (enable_normal_map == 1)
+    if (enable_normal_map)
          N = CalculateNormals(fNormals.rgb, texture(cTexNormal, fTexCoords01.xy));
 
     vec3 R = reflect(-dir, N.rgb);
@@ -578,12 +593,21 @@ void main()
 
     // Albedo
     vec4 albedo = mat.albedo_color.rgba;
-    if (enable_albedo_tex == 1)
+    if (enable_albedo_tex)
        albedo =  texture(cTexAlbedo, fTexCoords01.xy);
 
-    if (enable_roughness_map == 1)
+    // Emission
+    if (enable_emission_map)
+        emission *= texture(cTexEmission, fTexCoords01.xy).rgb;
+    if (enable_envmap_emission)
+    {
+        if (enable_correction_in_envmap)
+            emission += mat.emission_intens_not_in_envmap;
+    }
+
+    if (enable_roughness_map)
          roughness = max(texture(cTexRoughness, fTexCoords01.xy).x, 0.0001);
-    if (enable_metalness_map == 1)
+    if (enable_metalness_map)
          metalness = texture(cTexMetalness, fTexCoords01.xy).x;
 
     float L = dot(fNormals.rgb, normalize(dir.xyz));
@@ -600,7 +624,7 @@ void main()
     vec3 specular = prefilterEnv.rgb * (kS * brdf.x + brdf.y);
 
     // Edge lighting
-    if (enable_edge_light == 1)
+    if (enable_edge_light)
     {
         float edge_light_amount = exp2(log2(clamp(1.0 - L, 0.0, 1.0)) * mat.edge_light_powerY) * mat.edge_light_intens;
         lighting += edge_light_amount * mat.edge_light_color.rgb;
@@ -609,7 +633,18 @@ void main()
     // Apply light
     if (enable_shading == 1)
         diffuse.rgb += lighting.rgb;
+
     // Final output
     oFragColor.rgb = diffuse + specular;
+    if (enable_emission)
+        oFragColor.rgb += emission.rgb;
+
+    if (enable_fog_y)
+    {
+    }
+    if (enable_fog_z)
+    {
+    }
+
     oFragColor.a = 1.0;
 }
