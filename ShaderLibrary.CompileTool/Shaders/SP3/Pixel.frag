@@ -73,7 +73,7 @@ layout(binding = 1, std140) uniform ShpMtx
 	vec4 cParams; //x = skin count
 } shape;
 
-layout(binding = 2, std140) uniform ShaderOption
+layout(binding = 6, std140) uniform ShaderOption
 {
     vec4 _m0[4096];
 } shaderOption;
@@ -473,6 +473,34 @@ layout(binding = 2, std140) uniform Mat
     float gsys_alpha_test_ref_value; //@ default_value="0.5"
     vec2 padding;
 } mat;
+
+struct Fog {
+    vec4 Color;
+    vec3 Direction;
+    float Start;
+    float End;
+    float Damp;
+    float Padding1;
+    float Padding2;
+};
+
+layout(binding = 3, std140) uniform _Env
+{
+    vec4 cAmbientColor;
+    vec4 cHemiSkyColor;
+    vec4 cHemiGroundColor;
+    vec4 cHemiDirection;
+
+    vec4 cLightDirection0;
+    vec4 cLightColor;
+    vec4 cLightSpecColor;
+
+    vec4 cLightDirection1;
+    vec4 cLightColor1;
+    vec4 cLightSpecColor1;
+
+    Fog fog[4]; //env data[10] +
+} env;
 
 layout(binding = 4, std140) uniform BlitzUBO0
 {
