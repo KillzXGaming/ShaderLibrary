@@ -534,10 +534,13 @@ void main()
     float roughness = 0.0;
     float metalness = mat.metalness.x;
     vec3 lighting = vec3(0.0);
+    vec3 dir = normalize(fViewDirection.xyz);
 
     vec3 N = fNormals.rgb;
     if (enable_normal_map == 1)
          N = CalculateNormals(fNormals.rgb, texture(cTexNormal, fTexCoords01.xy));
+
+    vec3 R = reflect(-dir, N.rgb);
 
     // Paint
     float paint = texture(cTexCompPaint, fTexCoords01.xy).x + mat.two_color_complement_paint_intensity;
@@ -551,10 +554,8 @@ void main()
     if (enable_metalness_map == 1)
          metalness = texture(cTexMetalness, fTexCoords01.xy).x;
 
-    float L = dot(fNormals.rgb, normalize(fViewDirection.xyz));
+    float L = dot(fNormals.rgb, normalize(dir.xyz));
     vec2 brdf = texture(cEnvBRDFMap, vec2(L, 1.0 - roughness)).xy;
-
-    vec4 prefilterEnv = texture(cPrefilEnvMapArray, vec4(N.rgb, GetCubemapRange(roughness)));
 
     //// base reflectivity
     vec3 F0  = mix(vec3(0.04), albedo.rgb, metalness).xyz;
@@ -562,6 +563,7 @@ void main()
     vec3 kD = 1.0 - kS; // diffuse reflection factor
     kD *= 1.0 - metalness; // metals have no diffuse
 
+    vec4 prefilterEnv = texture(cPrefilEnvMapArray, vec4(R.rgb, GetCubemapRange(roughness)));
     // specular IBL
     vec3 specular = prefilterEnv.rgb * (kS * brdf.x + brdf.y);
 
