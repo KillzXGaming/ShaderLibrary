@@ -146,7 +146,7 @@ namespace ShaderLibrary
 
                 writer.Write((byte)model.UniformBlocks.Count);
                 writer.Write((byte)model.Unknown2);
-                writer.Write(model.UnknownIndices); //4 bytes
+                writer.Write(model.BlockIndices); //4 bytes
 
                 if (bfsha.BinHeader.VersionMajor >= 8)
                     writer.Write(model.UnknownIndices2); //padding

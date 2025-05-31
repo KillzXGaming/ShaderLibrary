@@ -252,6 +252,8 @@ namespace ShaderLibrary
                     RelocationTable.SaveEntry(writer, 1, 1, 0, 0, "Reflection slots");
 
                     reflectionDatas[j].header.SlotOffset = (int)writer.BaseStream.Position;
+                    reflectionDatas[j].header.SlotCount = reflectionDatas[j].Slots.Length;
+
                     writer.Write(reflectionDatas[j].header.SlotOffset);
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupX);
                     writer.Write(reflectionDatas[j].header.ComputeWorkGroupY);

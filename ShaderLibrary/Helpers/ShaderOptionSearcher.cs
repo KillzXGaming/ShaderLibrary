@@ -46,7 +46,7 @@ namespace ShaderLibrary.Helpers
             return keys.SequenceEqual(program_keys);
         }
 
-        static int[] WriteOptionKeys(ShaderModel shader, Dictionary<string, string> options)
+        public static int[] WriteOptionKeys(ShaderModel shader, Dictionary<string, string> options)
         {
             //Setup default keys
             int[] key_lookup = WriteDefaultKey(shader);

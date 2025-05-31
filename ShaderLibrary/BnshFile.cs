@@ -21,11 +21,25 @@ namespace ShaderLibrary
 
         public int DataAlignment => (1 << BinHeader.Alignment);
 
+        private Stream _stream;
 
         public BnshFile() {
             Variations = new List<ShaderVariation>();
             BinHeader = new BinaryHeader();
             Header = new BnshHeader();
+
+            BinHeader.Magic = 1213419074;
+            BinHeader.VersionMajor = 2;
+            BinHeader.VersionMicro = 12;
+            BinHeader.VersionMinor = 1;
+            BinHeader.Alignment = 12;
+            BinHeader.ByteOrder = 65279;
+            BinHeader.BlockOffset = 96;
+
+            Header.Magic = 1668510311;
+            Header.VariationStartOffset = 192;
+            Header.Version = 4;
+            Header.CompilerVersion = 68354;
         }
 
         public BnshFile(string filePath)
@@ -53,7 +67,8 @@ namespace ShaderLibrary
 
         public void Read(Stream stream)
         {
-            var reader = new BinaryDataReader(stream);
+            _stream = stream;
+            var reader = new BinaryDataReader(stream, false, true);
 
             stream.Read(Utils.AsSpan(ref BinHeader));
             reader.ReadBytes(64); //padding
@@ -79,20 +94,36 @@ namespace ShaderLibrary
 
         public class ShaderVariation : IResData
         {
-            public BnshShaderProgram BinaryProgram { get; set; }
+            private BnshShaderProgram _program;
+            public BnshShaderProgram BinaryProgram
+            {
+                get
+                {
+                    if (_program == null)
+                        _program = GetBnshShaderProgram();
+                    return _program;
+                } set => _program = value;
+            }
 
             internal long Position;
 
             private VariationHeader header;
+            private Stream _stream;
+
+            public ShaderVariation()
+            {
+                header = new VariationHeader();
+            }
 
             public void Read(BinaryDataReader reader)
             {
+                _stream = reader.BaseStream;
                 Position = reader.BaseStream.Position;
 
                 reader.BaseStream.Read(Utils.AsSpan(ref header));
                 var pos = reader.BaseStream.Position;
 
-                BinaryProgram = reader.Read<BnshShaderProgram>(header.BinaryOffset);
+              //  BinaryProgram = reader.Read<BnshShaderProgram>(header.BinaryOffset);
 
                 reader.SeekBegin(pos);
             }
@@ -102,6 +133,16 @@ namespace ShaderLibrary
                 BnshFile bnsh = new BnshFile();
                 bnsh.Variations.Add(this);
                 bnsh.Save(filePath);
+            }
+
+            private BnshShaderProgram GetBnshShaderProgram()
+            {
+                var reader = new BinaryDataReader(_stream, false, true);
+                reader.SeekBegin((int)header.BinaryOffset);
+
+                BnshShaderProgram program = new BnshShaderProgram();
+                program.Read(reader);
+                return program;
             }
         }
 
@@ -124,6 +165,15 @@ namespace ShaderLibrary
             public byte[] MemoryData = new byte[256];
 
             public BnshShaderProgramHeader header;
+
+            public BnshShaderProgram()
+            {
+                header = new BnshShaderProgramHeader()
+                {
+                    Flags = 2, ObjectSize = 256,
+                    Reserved8 = 128104,
+                };
+            }
 
             public void Read(BinaryDataReader reader)
             {
@@ -189,29 +239,87 @@ namespace ShaderLibrary
         {
             public BnshShaderReflectionHeader header;
 
-            public ResDict<ResString> Inputs = new ResDict<ResString>();
-            public ResDict<ResString> Outputs = new ResDict<ResString>();
-            public ResDict<ResString> Samplers = new ResDict<ResString>();
-            public ResDict<ResString> ConstantBuffers = new ResDict<ResString>();
-            public ResDict<ResString> UnorderedAccessBuffers = new ResDict<ResString>();
+            public ResDict<ResUint32> Inputs = new ResDict<ResUint32>();
+            public ResDict<ResUint32> Outputs = new ResDict<ResUint32>();
+            public ResDict<ResUint32> Samplers = new ResDict<ResUint32>();
+            public ResDict<ResUint32> ConstantBuffers = new ResDict<ResUint32>();
+            public ResDict<ResUint32> UnorderedAccessBuffers = new ResDict<ResUint32>();
 
             public int[] Slots = new int[0];
+
+            public ShaderReflectionData()
+            {
+                header = new BnshShaderReflectionHeader();
+            }
 
             public void Read(BinaryDataReader reader)
             {
                 reader.BaseStream.Read(Utils.AsSpan(ref header));
                 var pos = reader.BaseStream.Position;
 
-                Inputs = reader.LoadDictionary<ResString>(header.InputDictionaryOffset);
-                Outputs = reader.LoadDictionary<ResString>(header.OutputDictionaryOffset);
-                Samplers = reader.LoadDictionary<ResString>(header.SamplerDictionaryOffset);
-                ConstantBuffers = reader.LoadDictionary<ResString>(header.ConstantBufferDictionaryOffset);
-                UnorderedAccessBuffers = reader.LoadDictionary<ResString>(header.UnorderedAccessBufferDictionaryOffset);
+                Inputs = reader.LoadDictionary<ResUint32>(header.InputDictionaryOffset);
+                Outputs = reader.LoadDictionary<ResUint32>(header.OutputDictionaryOffset);
+                Samplers = reader.LoadDictionary<ResUint32>(header.SamplerDictionaryOffset);
+                ConstantBuffers = reader.LoadDictionary<ResUint32>(header.ConstantBufferDictionaryOffset);
+                UnorderedAccessBuffers = reader.LoadDictionary<ResUint32>(header.UnorderedAccessBufferDictionaryOffset);
 
                 if (header.SlotCount > 0)
+                {
                     Slots = reader.ReadCustom(() => reader.ReadInt32s((int)header.SlotCount), (uint)header.SlotOffset);
+                    AssignSlots(Slots);
+                }
 
                 reader.SeekBegin(pos);
+            }
+
+            /// <summary>
+            ///  Assigns slot data as values in each dictionary
+            /// </summary>
+            /// <param name="slots"></param>
+            private void AssignSlots(int[] slots)
+            {
+                void Set(ResDict<ResUint32> dict, int idx, int startIdx)
+                {
+                    if (slots.Length > startIdx + idx)
+                        dict[idx].Value = (uint)slots[startIdx + idx];
+                }
+
+                for (int i = 0; i < Inputs.Count; i++)
+                    Set(Inputs, i, 0);
+                for (int i = 0; i < Outputs.Count; i++)
+                    Set(Outputs, i, this.header.OutputIdx);
+                for (int i = 0; i < Samplers.Count; i++)
+                    Set(Samplers, i, this.header.SamplerIdx);
+                for (int i = 0; i < ConstantBuffers.Count; i++)
+                    Set(ConstantBuffers, i, this.header.ConstBufferIdx);
+                for (int i = 0; i < UnorderedAccessBuffers.Count; i++)
+                    Set(UnorderedAccessBuffers, i, this.header.UnorderedAccessBufferIdx);
+
+                UpdateSlots();
+            }
+
+            /// <summary>
+            /// Updates all slot data back from dictionaries
+            /// </summary>
+            public void UpdateSlots()
+            {
+                List<int> slots = new List<int>();
+
+                void Set(ResDict<ResUint32> dict, ref int startIdx)
+                {
+                    startIdx = slots.Count;
+                    foreach (var val in dict.Values)
+                        slots.Add((int)val.Value);
+                }
+
+                int first = 0;
+                Set(Inputs, ref first);
+                Set(Outputs, ref this.header.OutputIdx);
+                Set(Samplers, ref this.header.SamplerIdx);
+                Set(ConstantBuffers, ref this.header.ConstBufferIdx);
+                Set(UnorderedAccessBuffers, ref this.header.UnorderedAccessBufferIdx);
+
+                this.Slots = slots.ToArray();
             }
 
             public int GetInputLocation(string key)
@@ -244,6 +352,16 @@ namespace ShaderLibrary
                 if (Slots.Length > index + this.header.OutputIdx)
                     return Slots[index + this.header.OutputIdx];
                 return -1;
+            }
+
+            public enum LocationKind
+            {
+                Input,
+                Output,
+                Sampler,
+                ConstantBuffer,
+                UnorderedAccessBuffer,
+                Image,
             }
         }
     }

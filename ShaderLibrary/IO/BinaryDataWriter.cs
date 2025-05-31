@@ -21,15 +21,56 @@ namespace ShaderLibrary.IO
 
         internal long _ofsEndOfBlock;
 
-        public BinaryDataWriter(Stream input) : base(input)
+        public bool IsBigEndian = false;
+        public bool IsWiiU = false;
+
+        public BinaryDataWriter(Stream input, bool bigEndian = false) : base(input)
         {
+            IsBigEndian = bigEndian;
+            IsWiiU = IsBigEndian;
         }
 
+        public void WriteStruct<T>(T item) => Write(Utils.StructToBytes(item, IsBigEndian));
+
+        public override void Write(uint value)
+        {
+            if (IsBigEndian)
+                base.Write(BigEndianConverter.ToBigEndian(value));
+            else
+                base.Write(value);
+        }
+
+        public override void Write(int value)
+        {
+            if (IsBigEndian)
+                base.Write(BigEndianConverter.ToBigEndian(value));
+            else
+                base.Write(value);
+        }
+
+        public override void Write(ushort value)
+        {
+            if (IsBigEndian)
+                base.Write(BigEndianConverter.ToBigEndian(value));
+            else
+                base.Write(value);
+        }
+
+        public override void Write(short value)
+        {
+            if (IsBigEndian)
+                base.Write(BigEndianConverter.ToBigEndian(value));
+            else
+                base.Write(value);
+        }
 
         public long SaveOffset()
         {
             long pos = this.Position;
-            this.Write(0UL);
+            if (IsWiiU) //32 bit for wii u, else 64 bit
+                this.Write(0U);
+            else
+                this.Write(0UL);
             return pos;
         }
 
@@ -73,15 +114,29 @@ namespace ShaderLibrary.IO
 
         internal void WriteOffset(long offset)
         {
+            //The offset to point to
+            WriteOffset(offset, Position);
+        }
+
+        internal void WriteOffset(long offset, long target)
+        {
             if (offset == 0)
                 return;
 
-            //The offset to point to
-            long target = Position;
-
-            //Seek to where to write the offset itself and use relative position
-            using (this.BaseStream.TemporarySeek((uint)offset, SeekOrigin.Begin)) {
-                Write(((uint)target));
+            if (IsWiiU)
+            {
+                var target_relative = target - offset;
+                //Seek to where to write the offset itself and use relative position
+                using (this.BaseStream.TemporarySeek(offset, SeekOrigin.Begin)) {
+                    Write(((uint)target_relative));
+                }
+            }
+            else
+            {
+                //Seek to where to write the offset itself 
+                using (this.BaseStream.TemporarySeek((uint)offset, SeekOrigin.Begin)) {
+                    Write(((uint)target));
+                }
             }
         }
 

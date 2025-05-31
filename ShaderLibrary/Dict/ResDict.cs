@@ -13,7 +13,7 @@ namespace ShaderLibrary
 {
     public class ResDict<T> :  Dictionary<string, T>, IResData where T : IResData, new()
     {
-        private List<Node> _nodes = new List<Node>();
+        internal List<Node> _nodes = new List<Node>();
 
         internal List<Node> GetNodes() => _nodes;
 
@@ -78,6 +78,23 @@ namespace ShaderLibrary
         {
             // Update the Patricia trie values in the nodes.
             var newNodes = ResDictUpdate.UpdateNodes(Keys.ToList());
+
+            if (_nodes.Count != newNodes.Length)
+                _nodes = newNodes.Select(_ => new Node()).ToList();
+
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                _nodes[i].Reference = newNodes[i].Reference;
+                _nodes[i].IdxLeft = newNodes[i].IdxLeft;
+                _nodes[i].IdxRight = newNodes[i].IdxRight;
+                _nodes[i].Key = newNodes[i].Key;
+            }
+        }
+
+        public void GenerateTreeWiiU()
+        {
+            // Update the Patricia trie values in the nodes.
+            var newNodes = ResDictUpdateWiiU.UpdateNodes(Keys.ToList());
 
             if (_nodes.Count != newNodes.Length)
                 _nodes = newNodes.Select(_ => new Node()).ToList();

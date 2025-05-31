@@ -14,10 +14,12 @@ namespace ShaderLibrary.IO
         public long Position => this.BaseStream.Position;
 
         private bool IsBigEndian = false;
+        private bool IsWiiU = false;
 
-        public BinaryDataReader(Stream input, bool is_big_endian = false) : base(input)
+        public BinaryDataReader(Stream input, bool is_big_endian = false, bool leaveOpen = false) : base(input, Encoding.UTF8, leaveOpen)
         {
             IsBigEndian = is_big_endian;
+            IsWiiU |= is_big_endian;
         }
 
         public override uint ReadUInt32()
@@ -54,10 +56,13 @@ namespace ShaderLibrary.IO
 
         public long ReadOffset()
         {
-            if (IsBigEndian) //Wii u
+            if (IsWiiU) //Wii u
             {
-                var pos = this.BaseStream.Position;
-                return pos + this.ReadUInt32();
+                var startpos = this.BaseStream.Position;
+
+                var offset = this.ReadInt32();
+
+                return offset != 0 ? startpos + offset : 0;
             }
             return ReadInt64();
         }
@@ -143,7 +148,11 @@ namespace ShaderLibrary.IO
 
         public string LoadString(ulong offset)
         {
-            using (this.BaseStream.TemporarySeek((long)offset + 2, SeekOrigin.Begin)) {
+            if (offset == 0) return "";
+
+            var shift = IsWiiU ? 0 : 2; //switch shifts by 2 due to string length
+
+            using (this.BaseStream.TemporarySeek((long)offset + shift, SeekOrigin.Begin)) {
                 return ReadZeroTerminatedString();
             }
         }
@@ -234,6 +243,8 @@ namespace ShaderLibrary.IO
             this.BaseStream.Seek((long)offset, SeekOrigin.Begin);
         }
 
+        public T ReadStruct<T>() => Utils.BytesToStruct<T>(ReadBytes(Marshal.SizeOf<T>()), IsBigEndian);
+        public List<T> ReadMultipleStructs<T>(int count) => Enumerable.Range(0, count).Select(_ => ReadStruct<T>()).ToList();
 
         public string ReadZeroTerminatedString(int maxLength = int.MaxValue)
         {
@@ -250,6 +261,12 @@ namespace ShaderLibrary.IO
             string text = Encoding.UTF8.GetString(this.ReadBytes(size), 0, size);
             this.BaseStream.Position++; // Skip the null byte
             return text;
+        }
+
+        public void Align(int align)
+        {
+            var startPos = this.BaseStream.Position;
+             this.BaseStream.Seek((int)(-this.BaseStream.Position % align + align) % align, SeekOrigin.Current);
         }
     }
 }

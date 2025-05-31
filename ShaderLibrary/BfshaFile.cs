@@ -1,8 +1,9 @@
 ﻿using BfshaLibrary.WiiU;
 using Microsoft.VisualBasic.FileIO;
+using ShaderLibrary.Common;
 using ShaderLibrary.Helpers;
 using ShaderLibrary.IO;
-using ShaderLibrary.Loading;
+using ShaderLibrary.WiiU;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -24,7 +25,18 @@ namespace ShaderLibrary
 
         public BinaryHeader BinHeader; //A header shared between bfsha and other formats
 
-        public BfshaFile() { }
+        //Wii U specific
+        public ushort Flags;
+        public uint DataAlignment;
+
+        public bool IsWiiU = false;
+
+        public StringPool StringPool = new StringPool();
+
+        public BfshaFile() {
+            BinHeader = new BinaryHeader();
+            BinHeader.Magic = 2314885531374736198;
+        }
 
         public BfshaFile(string filePath)
         {
@@ -44,12 +56,21 @@ namespace ShaderLibrary
 
         public void Save(Stream stream)
         {
-            BfshaSaver saver = new BfshaSaver();
-            using (var writer = new BinaryDataWriter(stream))
-                saver.Save(this, writer);
+            if (IsWiiU)
+            {
+                BfshaSaverWiiU bfshaSaverWiiU = new BfshaSaverWiiU();
+                using (var writer = new BinaryDataWriter(stream, true))
+                    bfshaSaverWiiU.Save(this, writer);
+            }
+            else
+            {
+                BfshaSaver saver = new BfshaSaver();
+                using (var writer = new BinaryDataWriter(stream))
+                    saver.Save(this, writer);
+            }
         }
 
-        private bool IsWiiU(Stream stream)
+        private bool IsBfshaWiiU(Stream stream)
         {
             using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
             {
@@ -60,6 +81,12 @@ namespace ShaderLibrary
 
         public void Read(Stream stream)
         {
+            stream.Position = 0;
+            if (IsBfshaWiiU(stream))
+            {
+                BfshaLoaderWiiU.Load(this, new BinaryDataReader(stream, true));
+                return;
+            }
             stream.Position = 0;
 
             var reader = new BinaryDataReader(stream);
@@ -166,7 +193,7 @@ namespace ShaderLibrary
                 KeyTable = search_keys.ToArray(),
                 Name = name,
                 Unknown2 = shader.Unknown2,
-                UnknownIndices = shader.UnknownIndices,
+                BlockIndices = shader.BlockIndices,
                 UnknownIndices2 = shader.UnknownIndices2,
                 BnshFile = bnsh,
                 Programs = exported_programs,
@@ -181,18 +208,18 @@ namespace ShaderLibrary
     {
         public string Name { get; set; }
 
-        public ResDict<ShaderOption> StaticOptions { get; set; }
-        public ResDict<ShaderOption> DynamicOptions { get; set; }
-        public List<BfshaShaderProgram> Programs { get; set; }
+        public ResDict<ShaderOption> StaticOptions { get; set; } = new ResDict<ShaderOption>();
+        public ResDict<ShaderOption> DynamicOptions { get; set; } = new ResDict<ShaderOption>();
+        public List<BfshaShaderProgram> Programs { get; set; } = new List<BfshaShaderProgram>();
 
-        public ResDict<BfshaStorageBuffer> StorageBuffers { get; set; }
-        public ResDict<BfshaUniformBlock> UniformBlocks { get; set; }
+        public ResDict<BfshaStorageBuffer> StorageBuffers { get; set; } = new ResDict<BfshaStorageBuffer>();
+        public ResDict<BfshaUniformBlock> UniformBlocks { get; set; } = new ResDict<BfshaUniformBlock>();
 
-        public ResDict<BfshaImageBuffer> Images { get; set; }
-        public ResDict<BfshaSampler> Samplers { get; set; }
-        public ResDict<BfshaAttribute> Attributes { get; set; }
+        public ResDict<BfshaImageBuffer> Images { get; set; } = new ResDict<BfshaImageBuffer>();
+        public ResDict<BfshaSampler> Samplers { get; set; } = new ResDict<BfshaSampler>();
+        public ResDict<BfshaAttribute> Attributes { get; set; } = new ResDict<BfshaAttribute>();
 
-        public SymbolData SymbolData { get; set; }
+        public SymbolData SymbolData { get; set; } 
 
         public BnshFile BnshFile { get; set; }
 
@@ -204,9 +231,10 @@ namespace ShaderLibrary
         public int[] KeyTable { get; set; }
 
         public byte Unknown2;
-        public byte[] UnknownIndices = new byte[4];
+        public byte[] BlockIndices = new byte[4]; //material, shape, skeleton, option block indices
         public byte[] UnknownIndices2 = new byte[4];
 
+        public int MaxVSRingItemSize = 0;
         public int MaxRingItemSize = 0;
 
         public void Read(BinaryDataReader reader)
@@ -264,7 +292,7 @@ namespace ShaderLibrary
 
             byte uniformBlockCount = reader.ReadByte();
             Unknown2 = reader.ReadByte();
-            UnknownIndices = reader.ReadBytes(4);
+            BlockIndices = reader.ReadBytes(4);
 
             if (reader.Header.VersionMajor >= 8)
                 this.UnknownIndices2 = reader.ReadBytes(11);
@@ -348,24 +376,45 @@ namespace ShaderLibrary
 
         public void CreateAddNewShaderProgram(ShaderVariation variation, Dictionary<string, string> options)
         {
+            // Add variation
+            if (!this.BnshFile.Variations.Contains(variation))
+                this.BnshFile.Variations.Add(variation);
+
             var program = new BfshaShaderProgram();
             program.VariationIndex = this.BnshFile.Variations.IndexOf(variation);
 
             //Init locations
             //TODO add arguments with used bindings
-
             for (int i = 0; i < this.Samplers.Count; i++)
                 program.SamplerIndices.Add(new ShaderIndexHeader());
 
             for (int i = 0; i < this.UniformBlocks.Count; i++)
-                program.SamplerIndices.Add(new ShaderIndexHeader());
+                program.UniformBlockIndices.Add(new ShaderIndexHeader());
 
             for (int i = 0; i < this.StorageBuffers.Count; i++)
-                program.SamplerIndices.Add(new ShaderIndexHeader());
+                program.StorageBufferIndices.Add(new ShaderIndexHeader());
 
             for (int i = 0; i < this.Attributes.Count; i++)
                 program.SetAttribute(i, false);
 
+            for (int i = 0; i < this.Samplers.Count; i++)
+            {
+            }
+
+            //expand key table
+            int[] program_keys = new int[this.StaticKeyLength + this.DynamicKeyLength];
+            KeyTable = KeyTable.Concat(program_keys).ToArray();
+
+            // Add program
+            var programIndex = this.Programs.Count;
+            this.Programs.Add(program);
+
+            //Set option combinations required to use the program
+            SetProgramOptions(programIndex, options);
+        }
+
+        public void CreateAddNewShaderProgramWiiU(BfshaShaderProgram program, Dictionary<string, string> options)
+        {
             //expand key table
             int[] program_keys = new int[this.StaticKeyLength + this.DynamicKeyLength];
             KeyTable = KeyTable.Concat(program_keys).ToArray();
@@ -577,17 +626,19 @@ namespace ShaderLibrary
     {
         public string Name { get; set; }
 
-        public ResDict<ResUint32> Choices { get; set; }
+        public ResDict<ResUint32> Choices { get; set; } = new ResDict<ResUint32>();
 
         public ushort BlockOffset;
         public ushort Padding;
         public short DefaultChoiceIdx;
         public byte KeyOffset;
 
-        public uint Bit32Mask;
-        public byte Bit32Index;
-        public byte Bit32Shift;
+        public uint Bit32Mask; //bit mask
+        public byte Bit32Index; //key index
+        public byte Bit32Shift; //key bit pos
         public ushort Padding2;
+
+        public ushort Flags; //wii u only
 
         public uint[] ChoiceValues = new uint[0];
 
@@ -666,6 +717,9 @@ namespace ShaderLibrary
     {
         public uint Value { get; set; }
 
+        public ResUint32() { }
+        public ResUint32(uint value) { this.Value = value; }
+
         public void Read(BinaryDataReader reader)
         {
             Value = reader.ReadUInt32();
@@ -683,9 +737,9 @@ namespace ShaderLibrary
         public byte Index => header.Index;
         public BlockType Type => (BlockType)header.Type;
 
-        public ResDict<BfshaUniform> Uniforms { get; set; }
+        public ResDict<BfshaUniform> Uniforms { get; set; } = new ResDict<BfshaUniform>();
 
-        private ShaderUniformBlockHeader header;
+        public ShaderUniformBlockHeader header = new ShaderUniformBlockHeader();
 
         public byte[] DefaultBuffer;
 
@@ -805,7 +859,7 @@ namespace ShaderLibrary
         internal ulong VariationOffset;
 
         public uint UsedAttributeFlags;
-        public uint Flags;
+        public uint Flags = 0x14;
 
         internal long _samplerTableOfsPos;
         internal long _uniformBlockTableOfsPos;
@@ -816,8 +870,11 @@ namespace ShaderLibrary
         public ShaderModel ParentShader { get; internal set; }
 
         //Wii U only
-        public GX2PixelHeader GX2PixelData;
-        public GX2VertexHeader GX2VertexData;
+        public BfshaGX2PixelHeader GX2PixelData;
+        public BfshaGX2VertexHeader GX2VertexData;
+        public BfshaGX2GeometryHeader GX2GeometryData;
+
+        public ushort[] GX2Instructions = new ushort[10];
 
         public bool IsAttributeUsed(int index)
         {
@@ -830,6 +887,47 @@ namespace ShaderLibrary
                 UsedAttributeFlags |= (1u << index);
             else
                 UsedAttributeFlags &= ~(1u << index);
+        }
+
+        public void ResetLocations(ShaderModel shadermodel)
+        {
+            UniformBlockIndices = new ShaderIndexHeader[shadermodel.UniformBlocks.Count].ToList();
+            SamplerIndices   = new ShaderIndexHeader[shadermodel.Samplers.Count].ToList();
+            StorageBufferIndices = new ShaderIndexHeader[shadermodel.StorageBuffers.Count].ToList();
+            ImageIndices = new ShaderIndexHeader[shadermodel.Images.Count].ToList();
+
+            for (int i = 0; i < UniformBlockIndices.Count; i++)
+            {
+                UniformBlockIndices[i] = new ShaderIndexHeader();
+                UniformBlockIndices[i].VertexLocation = -1;
+                UniformBlockIndices[i].FragmentLocation = -1;
+                UniformBlockIndices[i].GeoemetryLocation = -1;
+                UniformBlockIndices[i].ComputeLocation = -1;
+            }
+            for (int i = 0; i < SamplerIndices.Count; i++)
+            {
+                SamplerIndices[i] = new ShaderIndexHeader();
+                SamplerIndices[i].VertexLocation = -1;
+                SamplerIndices[i].FragmentLocation = -1;
+                SamplerIndices[i].GeoemetryLocation = -1;
+                SamplerIndices[i].ComputeLocation = -1;
+            }
+            for (int i = 0; i < StorageBufferIndices.Count; i++)
+            {
+                StorageBufferIndices[i] = new ShaderIndexHeader();
+                StorageBufferIndices[i].VertexLocation = -1;
+                StorageBufferIndices[i].FragmentLocation = -1;
+                StorageBufferIndices[i].GeoemetryLocation = -1;
+                StorageBufferIndices[i].ComputeLocation = -1;
+            }
+            for (int i = 0; i < ImageIndices.Count; i++)
+            {
+                ImageIndices[i] = new ShaderIndexHeader();
+                ImageIndices[i].VertexLocation = -1;
+                ImageIndices[i].FragmentLocation = -1;
+                ImageIndices[i].GeoemetryLocation = -1;
+                ImageIndices[i].ComputeLocation = -1;
+            }
         }
 
         public void SetSampler(string sampler, bool bind, bool isFragment = true)
