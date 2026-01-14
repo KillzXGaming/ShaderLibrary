@@ -58,7 +58,8 @@ namespace ShaderLibrary
             //GRSC
             writer.WriteSignature(_grscSignature);
             writer.SaveHeaderBlock();
-            writer.Write(bnsh.Header.Version);
+            writer.Write((ushort)bnsh.Header.ApiType);
+            writer.Write((ushort)bnsh.Header.ApiVersion);
             writer.Write(bnsh.Header.CodeTarget);
             writer.Write(bnsh.Header.CompilerVersion);
             writer.Write(bnsh.Variations.Count);
@@ -208,8 +209,8 @@ namespace ShaderLibrary
 
                 //binaries
                 SaveControlCode(prog.VertexShader, 0);
-                SaveControlCode(prog.HullShader, 1);
-                SaveControlCode(prog.DomainShader, 2);
+                SaveControlCode(prog.TessellationControlShader, 1);
+                SaveControlCode(prog.TessellationEvalShader, 2);
                 SaveControlCode(prog.GeometryShader, 3);
                 SaveControlCode(prog.FragmentShader, 4);
                 SaveControlCode(prog.ComputeShader, 5);
@@ -217,8 +218,8 @@ namespace ShaderLibrary
                 //reflection data
                 BnshFile.ShaderReflectionData[] reflectionDatas = new BnshFile.ShaderReflectionData[6];
                 reflectionDatas[0] = prog.VertexShaderReflection;
-                reflectionDatas[1] = prog.HullShaderReflection;
-                reflectionDatas[2] = prog.DomainShaderReflection;
+                reflectionDatas[1] = prog.TessellationControlShaderReflection;
+                reflectionDatas[2] = prog.TessellationEvalShaderReflection;
                 reflectionDatas[3] = prog.GeometryShaderReflection;
                 reflectionDatas[4] = prog.FragmentShaderReflection;
                 reflectionDatas[5] = prog.ComputeShaderReflection;
@@ -241,13 +242,13 @@ namespace ShaderLibrary
                     reflectionDatas[j].header.InputDictionaryOffset = (ulong)writer.SaveOffset();
                     reflectionDatas[j].header.OutputDictionaryOffset = (ulong)writer.SaveOffset();
                     reflectionDatas[j].header.SamplerDictionaryOffset = (ulong)writer.SaveOffset();
-                    reflectionDatas[j].header.ConstantBufferDictionaryOffset = (ulong)writer.SaveOffset();
-                    reflectionDatas[j].header.UnorderedAccessBufferDictionaryOffset = (ulong)writer.SaveOffset();
+                    reflectionDatas[j].header.UniformBufferDictionaryOffset = (ulong)writer.SaveOffset();
+                    reflectionDatas[j].header.StorageBufferDictionaryOffset = (ulong)writer.SaveOffset();
 
                     writer.Write(reflectionDatas[j].header.OutputIdx);
                     writer.Write(reflectionDatas[j].header.SamplerIdx);
-                    writer.Write(reflectionDatas[j].header.ConstBufferIdx);
-                    writer.Write(reflectionDatas[j].header.UnorderedAccessBufferIdx);
+                    writer.Write(reflectionDatas[j].header.UniformBufferIdx);
+                    writer.Write(reflectionDatas[j].header.StorageBufferIdx);
 
                     RelocationTable.SaveEntry(writer, 1, 1, 0, 0, "Reflection slots");
 
@@ -274,8 +275,8 @@ namespace ShaderLibrary
                     writer.WriteDictionary(data.Inputs, (long)data.header.InputDictionaryOffset);
                     writer.WriteDictionary(data.Outputs, (long)data.header.OutputDictionaryOffset);
                     writer.WriteDictionary(data.Samplers, (long)data.header.SamplerDictionaryOffset);
-                    writer.WriteDictionary(data.ConstantBuffers, (long)data.header.ConstantBufferDictionaryOffset);
-                    writer.WriteDictionary(data.UnorderedAccessBuffers, (long)data.header.UnorderedAccessBufferDictionaryOffset);
+                    writer.WriteDictionary(data.UniformBuffers, (long)data.header.UniformBufferDictionaryOffset);
+                    writer.WriteDictionary(data.StorageBuffers, (long)data.header.StorageBufferDictionaryOffset);
 
                     if (data.Slots.Length > 0)
                     {

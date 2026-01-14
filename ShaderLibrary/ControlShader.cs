@@ -13,16 +13,16 @@ namespace ShaderLibrary
     public class ControlShader
     {
         private uint Magic = 2557874740;
-        private uint MajorVer = 1;
-        private uint MinorVer = 9;
+        public uint MajorVer = 1;
+        public uint MinorVer = 9;
         private uint val_0xC = 120;
         private uint val_0x10 = 0xb;
-        private uint GlasmOffset = 2000; //pointer to byte at the end
-        private uint GlasmSize = 0;
-        private uint GlasmUnk0 = 0;
-        private uint GlasmUnk1 = 2001; //size?
+        public uint GlasmOffset = 2000; //pointer to byte at the end
+        public uint GlasmSize = 0;
+        public uint GlasmUnk0 = 0;
+        public uint GlasmUnk1 = 2001; //size?
 
-        private uint ProgramSize;
+        public uint ProgramSize;
         private uint ConstBufSize;
         private uint ConstBufOffset;
         private uint ShaderSize;
@@ -61,6 +61,7 @@ namespace ShaderLibrary
         }
 
         public byte[] EndPadding = new byte[0x60];
+        public byte[] GLAssembly = new byte[0];
 
         public ControlShader()
         {
@@ -140,13 +141,18 @@ namespace ShaderLibrary
                 NumBarriers = reader.ReadUInt32(),
             };
 
-            EndPadding = reader.ReadBytes((int)(reader.BaseStream.Length - reader.BaseStream.Position));
+            EndPadding = reader.ReadBytes((int)(GlasmOffset - reader.BaseStream.Position));
+            GLAssembly = reader.ReadBytes((int)GlasmSize);
 
             var end = reader.BaseStream.Position;
-            Console.WriteLine();
         }
 
-
+        public byte[] ToBytes()
+        {
+            var mem = new MemoryStream();
+            Save(mem);
+            return mem.ToArray();
+        }
 
         public void Save(string filePath)
         {
@@ -171,7 +177,7 @@ namespace ShaderLibrary
             writer.Write(val_0xC);
             writer.Write(val_0x10);
             writer.Write(GlasmOffset);
-            writer.Write(GlasmSize);
+            writer.Write((uint)GLAssembly.Length);
             writer.Write(GlasmUnk0);
             writer.Write(GlasmUnk1);
 
@@ -203,6 +209,9 @@ namespace ShaderLibrary
             writer.Write(ShaderComp.CrsSz);
             writer.Write(ShaderComp.NumBarriers);
             writer.Write(EndPadding);
+
+            writer.Write(GLAssembly);
+            writer.Write(0);
         }
 
         public float[] GetConstantsAsFloats(byte[] shader_code)

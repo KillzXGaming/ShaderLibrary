@@ -57,6 +57,9 @@ namespace ShaderLibrary
         /// <returns></returns>
         public static string ApplyMacros(Dictionary<string, string> macros, string shaderSource)
         {
+            if (string.IsNullOrEmpty(shaderSource))
+                return shaderSource;
+
             var sb = new System.Text.StringBuilder();
             using (var writer = new System.IO.StringWriter(sb))
             {
@@ -83,16 +86,22 @@ namespace ShaderLibrary
 
                     // Macro value ie #define skin_count 1
                     var macroValue = line.Split()[2];
+
+                    var macroNew = macros[macroName];
+
                     // Boolean types as macro inputs expect 0 or 1 as values
                     bool isBool = macroValue.Contains("true") || macroValue.Contains("false");
 
                     if (isBool) // Set as true or false if necessary
                     {
-                        if (macroValue == "1") macroValue = "true";
-                        if (macroValue == "0") macroValue = "false";
+                        if (macroNew == "1") macroNew = "true";
+                        if (macroNew == "0") macroNew = "false";
                     }
+
+                    Console.WriteLine($"{macroValue} -> {macroNew}");
+
                     // Updated macro value in shader code
-                    writer.WriteLine(string.Format("#define {0} {1}", macroName, macroValue));
+                    writer.WriteLine(string.Format("#define {0} {1}", macroName, macroNew));
                 }
             }
             return sb.ToString();

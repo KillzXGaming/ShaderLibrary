@@ -30,6 +30,14 @@ namespace ShaderLibrary
                 }
                 return new T();
             }
+            set
+            {
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (i == index)
+                        this[GetKey(i)] = value;
+                }
+            }
         }
 
         public string GetKey(int index)

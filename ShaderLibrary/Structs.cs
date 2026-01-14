@@ -248,7 +248,9 @@ namespace ShaderLibrary
         public uint BlockSize;
         public uint Padding;
 
-        public uint Version;
+        public ushort ApiType;
+        public ushort ApiVersion;
+
         public uint CodeTarget;
         public uint CompilerVersion;
 
@@ -283,8 +285,8 @@ namespace ShaderLibrary
         public uint BinaryFormat;
 
         public ulong VertexShaderOffset;
-        public ulong HullShaderOffset;
-        public ulong DomainShaderOffset;
+        public ulong TessellationControlShaderOffset;
+        public ulong TessellationEvalShaderOffset;
         public ulong GeometryShaderOffset;
         public ulong FragmentShaderOffset;
         public ulong ComputeShaderOffset;
@@ -317,13 +319,13 @@ namespace ShaderLibrary
         public ulong InputDictionaryOffset;
         public ulong OutputDictionaryOffset;
         public ulong SamplerDictionaryOffset;
-        public ulong ConstantBufferDictionaryOffset;
-        public ulong UnorderedAccessBufferDictionaryOffset;
+        public ulong UniformBufferDictionaryOffset;
+        public ulong StorageBufferDictionaryOffset;
 
         public int OutputIdx; //id in slot list
         public int SamplerIdx;//id in slot list
-        public int ConstBufferIdx;//id in slot list
-        public int UnorderedAccessBufferIdx;//id in slot list
+        public int UniformBufferIdx;//id in slot list
+        public int StorageBufferIdx;//id in slot list
 
         public int SlotOffset;
 

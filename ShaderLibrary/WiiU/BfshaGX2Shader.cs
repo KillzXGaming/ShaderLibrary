@@ -39,6 +39,7 @@ namespace BfshaLibrary.WiiU
             }
             return mem.ToArray();
         }
+        public BfshaGX2VertexHeader() { }
 
         public BfshaGX2VertexHeader(BinaryDataReader reader)
         {
@@ -93,7 +94,7 @@ namespace BfshaLibrary.WiiU
         public byte[] Data { get; set; }
         public byte[] Regs { get; set; }
         public uint Mode { get; set; }
-        public uint[] UnusedHeader { get; set; }
+        public uint[] UnusedHeader { get; set; } = new uint[14];
 
         public List<GSHFile.GX2LoopVar> Loops { get; set; } = new List<GSHFile.GX2LoopVar>();
 
@@ -106,6 +107,8 @@ namespace BfshaLibrary.WiiU
             }
             return mem.ToArray();
         }
+
+        public BfshaGX2PixelHeader() { }
 
         public BfshaGX2PixelHeader(BinaryDataReader reader)
         {

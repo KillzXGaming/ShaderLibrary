@@ -8,8 +8,12 @@ namespace ShaderLibrary.WiiU
 {
     public class BfshaGX2ShaderImporter
     {
-        public static void Import(ShaderModel shadermodel, BfshaShaderProgram program, GSHFile.GX2Shader shader, Dictionary<string, string> shader_uniforms)
+        public static void Import(ShaderModel shadermodel, BfshaShaderProgram program,
+            GSHFile.GX2Shader shader, IntermediateShader.ShaderModelInfo intermediate)
         {
+            program.GX2VertexData = new BfshaLibrary.WiiU.BfshaGX2VertexHeader();
+            program.GX2PixelData = new BfshaLibrary.WiiU.BfshaGX2PixelHeader();
+
             program.GX2VertexData.Data = shader.VertexData;
             program.GX2VertexData.Regs = shader.VertexHeader.GetRegs();
             program.GX2VertexData.Mode = shader.VertexHeader.Mode;
@@ -17,27 +21,29 @@ namespace ShaderLibrary.WiiU
 
             program.ResetLocations(shadermodel);
 
-            SetLocations(shadermodel, program, shader.VertexHeader, shader_uniforms);
+            SetLocations(shadermodel, program, shader.VertexHeader, intermediate);
 
             program.GX2PixelData.Data = shader.PixelData;
             program.GX2PixelData.Regs = shader.PixelHeader.GetRegs();
             program.GX2PixelData.Mode = shader.PixelHeader.Mode;
             program.GX2PixelData.Loops = shader.PixelHeader.Loops;
 
-            SetLocations(shadermodel, program, shader.PixelHeader, shader_uniforms);
+            SetLocations(shadermodel, program, shader.PixelHeader, intermediate);
+/*
+            program.GX2GeometryData.Data = shader.GeometryShData;
+            program.GX2GeometryData.Regs = shader.GeometryHeader.GetRegs();
+            program.GX2GeometryData.Mode = shader.GeometryHeader.Mode;
+            program.GX2GeometryData.Loops = shader.GeometryHeader.Loops;
+
+            SetLocations(shadermodel, program, shader.GeometryHeader, intermediate);*/
         }
 
         static void SetLocations(ShaderModel shadermodel, BfshaShaderProgram program,
-            GSHFile.GX2VertexHeader shader, Dictionary<string, string> shader_uniforms)
+            GSHFile.GX2VertexHeader shader, IntermediateShader.ShaderModelInfo intermediate)
         {
             foreach (var uniformBlock in shader.UniformBlocks)
             {
-                if (!shader_uniforms.ContainsKey(uniformBlock.Name))
-                {
-                    Console.WriteLine($"Failed to bind {uniformBlock.Name}");
-                    return;
-                }
-                string target = shader_uniforms[uniformBlock.Name];
+                string target = intermediate.GetUniformBlockBfshaName(uniformBlock.Name);
                 if (!shadermodel.UniformBlocks.ContainsKey(target))
                     return;
 
@@ -46,12 +52,7 @@ namespace ShaderLibrary.WiiU
             }
             foreach (var samplerVar in shader.Samplers)
             {
-                if (!shader_uniforms.ContainsKey(samplerVar.Name))
-                {
-                    Console.WriteLine($"Failed to bind {samplerVar.Name}");
-                    return;
-                }
-                string target = shader_uniforms[samplerVar.Name];
+                string target = intermediate.GetSamplerBfshaName(samplerVar.Name);
                 if (!shadermodel.Samplers.ContainsKey(target))
                     return;
 
@@ -63,28 +64,18 @@ namespace ShaderLibrary.WiiU
             program.UsedAttributeFlags = 0;
             foreach (var attributeVar in shader.Attributes)
             {
-                if (!shader_uniforms.ContainsKey(attributeVar.Name))
-                {
-                    Console.WriteLine($"Failed to bind {attributeVar.Name}");
-                    return;
-                }
-                string target = shader_uniforms[attributeVar.Name];
+                string target = intermediate.GetAttributeBfshaName(attributeVar.Name);
                 if (shadermodel.Attributes.ContainsKey(target))
                     program.SetAttribute(shadermodel.Attributes[target].Index, true);
             }
         }
 
         static void SetLocations(ShaderModel shadermodel, BfshaShaderProgram program,
-            GSHFile.GX2PixelHeader shader, Dictionary<string, string> shader_uniforms)
+            GSHFile.GX2PixelHeader shader, IntermediateShader.ShaderModelInfo intermediate)
         {
             foreach (var uniformBlock in shader.UniformBlocks)
             {
-                if (!shader_uniforms.ContainsKey(uniformBlock.Name))
-                {
-                    Console.WriteLine($"Failed to bind {uniformBlock.Name}");
-                    return;
-                }
-                string target = shader_uniforms[uniformBlock.Name];
+                string target = intermediate.GetUniformBlockBfshaName(uniformBlock.Name);
                 if (!shadermodel.UniformBlocks.ContainsKey(target))
                     return;
 
@@ -93,17 +84,34 @@ namespace ShaderLibrary.WiiU
             }
             foreach (var samplerVar in shader.Samplers)
             {
-                if (!shader_uniforms.ContainsKey(samplerVar.Name))
-                {
-                    Console.WriteLine($"Failed to bind {samplerVar.Name}");
-                    return;
-                }
-                string target = shader_uniforms[samplerVar.Name];
+                string target = intermediate.GetSamplerBfshaName(samplerVar.Name);
                 if (!shadermodel.Samplers.ContainsKey(target))
                     return;
 
                 var bind_info = program.SamplerIndices[shadermodel.Samplers[target].Index];
                 bind_info.FragmentLocation = (int)samplerVar.Location;
+            }
+        }
+        static void SetLocations(ShaderModel shadermodel, BfshaShaderProgram program,
+            GSHFile.GX2GeometryShaderHeader shader, IntermediateShader.ShaderModelInfo intermediate)
+        {
+            foreach (var uniformBlock in shader.UniformBlocks)
+            {
+                string target = intermediate.GetUniformBlockBfshaName(uniformBlock.Name);
+                if (!shadermodel.UniformBlocks.ContainsKey(target))
+                    return;
+
+                var bind_info = program.UniformBlockIndices[shadermodel.UniformBlocks[target].Index];
+                bind_info.GeoemetryLocation = (int)uniformBlock.Offset;
+            }
+            foreach (var samplerVar in shader.Samplers)
+            {
+                string target = intermediate.GetSamplerBfshaName(samplerVar.Name);
+                if (!shadermodel.Samplers.ContainsKey(target))
+                    return;
+
+                var bind_info = program.SamplerIndices[shadermodel.Samplers[target].Index];
+                bind_info.GeoemetryLocation = (int)samplerVar.Location;
             }
         }
     }

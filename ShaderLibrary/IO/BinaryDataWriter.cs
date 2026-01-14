@@ -24,7 +24,7 @@ namespace ShaderLibrary.IO
         public bool IsBigEndian = false;
         public bool IsWiiU = false;
 
-        public BinaryDataWriter(Stream input, bool bigEndian = false) : base(input)
+        public BinaryDataWriter(Stream input, bool bigEndian = false) : base(input, Encoding.UTF8, true)
         {
             IsBigEndian = bigEndian;
             IsWiiU = IsBigEndian;

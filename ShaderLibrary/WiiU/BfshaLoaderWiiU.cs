@@ -107,23 +107,36 @@ namespace ShaderLibrary.WiiU
 
             shaderModel.Name = reader.LoadString(nameOffset);
 
-            reader.SeekBegin(staticOptionsDictOffset);
-            shaderModel.StaticOptions = ReadDictionary(reader, ReadShaderOption);
-
-            reader.SeekBegin(dynamicOptionsDictOffset);
-            shaderModel.DynamicOptions = ReadDictionary(reader, ReadShaderOption);
-
-            reader.SeekBegin(samplersDictOffset);
-            shaderModel.Samplers = ReadDictionary(reader, ReadShaderSampler);
-
-            reader.SeekBegin(attributesDictOffset);
-            shaderModel.Attributes = ReadDictionary(reader, ReadShaderAttribute);
-
-            reader.SeekBegin(uniformBlocksDictOffset);
-            shaderModel.UniformBlocks = ReadDictionary(reader, ReadShaderUniformBlock);
-
-            reader.SeekBegin(keyTableOffset);
-            shaderModel.KeyTable = reader.ReadInt32s((shaderModel.StaticKeyLength + shaderModel.DynamicKeyLength) * programCount);
+            if (staticOptionsDictOffset  != 0)
+            {
+                reader.SeekBegin(staticOptionsDictOffset);
+                shaderModel.StaticOptions = ReadDictionary(reader, ReadShaderOption);
+            }
+            if (dynamicOptionsDictOffset != 0)
+            {
+                reader.SeekBegin(dynamicOptionsDictOffset);
+                shaderModel.DynamicOptions = ReadDictionary(reader, ReadShaderOption);
+            }
+            if (samplersDictOffset != 0)
+            {
+                reader.SeekBegin(samplersDictOffset);
+                shaderModel.Samplers = ReadDictionary(reader, ReadShaderSampler);
+            }
+            if (attributesDictOffset != 0)
+            {
+                reader.SeekBegin(attributesDictOffset);
+                shaderModel.Attributes = ReadDictionary(reader, ReadShaderAttribute);
+            }
+            if (uniformBlocksDictOffset != 0)
+            {
+                reader.SeekBegin(uniformBlocksDictOffset);
+                shaderModel.UniformBlocks = ReadDictionary(reader, ReadShaderUniformBlock);
+            }
+            if (keyTableOffset != 0)
+            {
+                reader.SeekBegin(keyTableOffset);
+                shaderModel.KeyTable = reader.ReadInt32s((shaderModel.StaticKeyLength + shaderModel.DynamicKeyLength) * programCount);
+            }
 
             reader.SeekBegin(shaderProgramsOffset);
 
@@ -249,7 +262,7 @@ namespace ShaderLibrary.WiiU
             var blockCount = reader.ReadByte();
             program.UsedAttributeFlags = reader.ReadUInt32();
 
-            if (reader.Header.VersionMajor >= 4)
+            if (reader.Header.VersionMajor >= 3 && reader.Header.VersionMicro >= 5)
             {
                 program.GX2Instructions = reader.ReadUInt16s(16);
                 reader.ReadUInt32(); //always 0
@@ -270,10 +283,10 @@ namespace ShaderLibrary.WiiU
                 //Rather than GX2 shader headers, this version has unsupported headers that work differently
                 //Unsure how to support these atm
 
-                throw new Exception($"Version {reader.Header.VersionMajor} not supported!");
+               // throw new Exception($"Version {reader.Header.VersionMajor} not supported!");
 
-                program.SamplerIndices = ReadLocationList(reader, samplerLocationsOffset, samplerCount);
-                program.UniformBlockIndices = ReadLocationList(reader, uniformBlockLocationsOffset, blockCount);
+              //  program.SamplerIndices = ReadLocationList(reader, samplerLocationsOffset, samplerCount);
+              //  program.UniformBlockIndices = ReadLocationList(reader, uniformBlockLocationsOffset, blockCount);
             }
             else
             {

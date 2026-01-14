@@ -17,19 +17,33 @@ namespace ShaderLibrary.WiiU
 
         }
 
-        public static byte[] CompileStages(string vertex, string fragment) 
+        public static bool IsValid()
+        {
+            return File.Exists(GSH_PATH);
+        }
+
+        public static byte[] CompileStages(string vertex, string fragment, string geometry) 
         {
             string vsh_path = "temp.vert";
             string fsh_path = "temp.frag";
+            string gsh_path = "temp.geom";
 
             if (File.Exists(OUTPUT_PATH)) File.Delete(OUTPUT_PATH);
 
             //save shader
             File.WriteAllText(vsh_path, vertex);
             File.WriteAllText(fsh_path, fragment);
+            if (!string.IsNullOrEmpty(geometry))
+                File.WriteAllText(gsh_path, geometry);
 
-          //  Exec(GSH_PATH, $"-v {vsh_path} -p {fsh_path} -o {OUTPUT_PATH} -force_uniformblock -no_limit_array_syms -nospark -O");
-            Exec(GSH_PATH, $"-v {vsh_path} -p {fsh_path} -o {OUTPUT_PATH} -force_uniformblock -no_limit_array_syms -nospark -O");
+            string cmd = $"";
+            // Shader stages
+            if (!string.IsNullOrEmpty(vertex))    cmd += $" -v {vsh_path}";
+            if (!string.IsNullOrEmpty(fragment))  cmd += $" -p {fsh_path}";
+            if (!string.IsNullOrEmpty(geometry))  cmd += $" -g {gsh_path}";
+
+            //  Exec(GSH_PATH, $"-v {vsh_path} -p {fsh_path} -o {OUTPUT_PATH} -force_uniformblock -no_limit_array_syms -nospark -O");
+            Exec(GSH_PATH, $"{cmd} -o {OUTPUT_PATH} -force_uniformblock -no_limit_array_syms -nospark -O");
 
             if (File.Exists(OUTPUT_PATH))
             {
@@ -61,6 +75,39 @@ namespace ShaderLibrary.WiiU
 
         private static bool Exec(string exec, string args)
         {
+            Console.WriteLine(args);
+
+            var info = new ProcessStartInfo
+            {
+                FileName = exec,
+                Arguments = args,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            Process cmd = new Process();
+            cmd.StartInfo = info;
+            cmd.OutputDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    Console.WriteLine(e.Data);
+            };
+            cmd.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    Console.WriteLine($"Error: {e.Data}");
+            };
+            cmd.Start();
+
+            cmd.BeginOutputReadLine();
+            cmd.BeginErrorReadLine();
+
+            cmd.WaitForExit();
+
+            return cmd.ExitCode == 0;
+            /*
             ProcessStartInfo info = new ProcessStartInfo("cmd.exe", "/C " + $"{exec} {args}");
             info.CreateNoWindow = true;
             info.UseShellExecute = false;
@@ -86,7 +133,7 @@ namespace ShaderLibrary.WiiU
 
             cmd.WaitForExit();
 
-            return cmd.ExitCode == 0;
+            return cmd.ExitCode == 0;*/
         }
 
         public static string CompileMacros(Dictionary<string, string> macros, string src)

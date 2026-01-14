@@ -151,7 +151,7 @@ namespace ShaderLibrary
                 if (bfsha.BinHeader.VersionMajor >= 8)
                     writer.Write(model.UnknownIndices2); //padding
                 else if (bfsha.BinHeader.VersionMajor >= 7)
-                    writer.Write(new byte[4]); //padding
+                    writer.Write(uint.MaxValue); //padding
                 else
                     writer.Write(new byte[6]); //padding
             }

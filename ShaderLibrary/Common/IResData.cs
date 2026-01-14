@@ -9,6 +9,5 @@ namespace ShaderLibrary
 {
     public interface IResData
     {
-        void Read(BinaryDataReader reader);
     }
 }
