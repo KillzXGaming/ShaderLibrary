@@ -32,6 +32,26 @@ namespace EffectLibraryTest
             File.WriteAllText(filePath, ShaderLabelUtil.PreviewUniforms(GetCode(shaderCode, reflect), shader, reflect));
         }
 
+        public static void ExportPreviewed(string code, ShaderModel shader, BnshFile.ShaderCode shaderCode, BnshFile.ShaderReflectionData reflect, string filePath)
+        {
+            if (shaderCode == null)
+                return;
+
+            var control_code = new ControlShader(shaderCode.ControlCode);
+            float[] constants = control_code.GetConstantsAsFloats(shaderCode.ByteCode);
+            byte[] raw = control_code.GetConstants(shaderCode.ByteCode);
+            File.WriteAllBytes("Constants.bin", raw);
+
+            //Apply the code to be usable with the UAM compiler
+            code = ApplyConstants(code, constants);
+            code = FixLocations(code);
+
+            if (reflect != null)
+                code = SetReflectionNames(code, reflect);
+
+            File.WriteAllText(filePath, ShaderLabelUtil.PreviewUniforms(code, shader, reflect));
+        }
+
         public static string GetCode(BnshFile.ShaderCode shaderCode, BnshFile.ShaderReflectionData reflect = null)
         {
             var control_code = new ControlShader(shaderCode.ControlCode);
@@ -64,7 +84,7 @@ namespace EffectLibraryTest
                 symbols.Add(glsl_string_pixel, sampler);
             }
 
-            foreach (var name in reflect.ConstantBuffers.Keys)
+            foreach (var name in reflect.UniformBuffers.Keys)
             {
                 int location = reflect.GetConstantBufferLocation(name);
                 if (location == -1)
@@ -73,8 +93,8 @@ namespace EffectLibraryTest
                 symbols.Add($"_fp_c{((location) + 3)}", $"_{name}");
                 symbols.Add($"_vp_c{((location) + 3)}", $"_{name}");
 
-                symbols.Add($"fp_c{((location) + 3)}", name);
-                symbols.Add($"vp_c{((location) + 3)}", name);
+                symbols.Add($"fp_c{((location) + 3)}_1", name);
+                symbols.Add($"vp_c{((location) + 3)}_1", name);
             }
 
             foreach (var name in reflect.Inputs.Keys)
@@ -160,7 +180,7 @@ namespace EffectLibraryTest
                         //input block
                         if (line.Contains("std140) uniform") && line.Contains("_c"))
                         {
-                            if (line.EndsWith("_fp_c1")) //remove constant buffer as the extractor loads these directly
+                            if (line.EndsWith("_fp_c1") || line.EndsWith("_vp_c1")) //remove constant buffer as the extractor loads these directly
                             {
                                 //skip cbuffer lines
                                 reader.ReadLine();
@@ -193,7 +213,7 @@ namespace EffectLibraryTest
 
         static string ApplyConstants(string code, float[] constants)
         {
-            string blockName = "fp_c1.data";
+            string blockName = "vp_c1_1._m0";
 
             Dictionary<string, float> constant_lookup = new Dictionary<string, float>();
 
@@ -235,7 +255,7 @@ namespace EffectLibraryTest
                     if (line != null)
                     {
                         //swap variable with raw constant value
-                        if (line.Contains("fp_c1.data"))
+                        if (line.Contains("vp_c1_1._m0"))
                         {
                             //find variable and replace it
                             foreach (var var in constant_lookup)
