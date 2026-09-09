@@ -49,7 +49,7 @@ namespace ShaderLibrary.WiiU
 
             writer.Write((ushort)bfsha.ShaderModels.Count);
             writer.Write((ushort)bfsha.Flags);
-            writer.Write(0);
+            writer.Write(bfsha.Unknown1);
 
             SaveDataPointer(writer, bfsha.ShaderModels);
             writer.Write(0);

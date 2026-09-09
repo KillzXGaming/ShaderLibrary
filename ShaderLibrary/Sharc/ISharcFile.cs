@@ -9,5 +9,6 @@ namespace ShaderLibrary.Sharc
     public interface ISharcFile
     {
         public uint GetVersion();
+        public bool IsVersion2 => false;
     }
 }

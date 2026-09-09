@@ -7,7 +7,6 @@ using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using static ShaderBuilderTool.UAMShaderCompiler;
 using static ShaderLibrary.SharcFile;
 
 namespace ShaderLibrary
@@ -87,6 +86,8 @@ namespace ShaderLibrary
         public string Name;
 
         public bool IsSwitch = false;
+
+        public bool IsVersion2 { get; set; } = true;
 
         public static bool Identify(Stream stream)
         {
@@ -201,8 +202,11 @@ namespace ShaderLibrary
                 uint numBuffers = 0;
                 long bufferOffset = 0;
 
-                numBuffers = reader.ReadUInt32();
-                bufferOffset = ReadOffset(reader);
+                if (sharc.IsVersion2)
+                {
+                    numBuffers = reader.ReadUInt32();
+                    bufferOffset = ReadOffset(reader);
+                }
 
                 uint numAttributes = reader.ReadUInt32();
                 var attributeOffset = ReadOffset(reader);
@@ -399,8 +403,13 @@ namespace ShaderLibrary
 
                 wr.Write(variation.UniformBlocks.Count);
                 var uniformBlockOffset = wr.SaveOffset();
-                wr.Write(variation.Buffers.Count);
-                var bufferOffset = wr.SaveOffset();
+
+                long bufferOffset = 0;
+                if (sharc.IsVersion2)
+                {
+                    wr.Write(variation.Buffers.Count);
+                    bufferOffset = wr.SaveOffset();
+                }
                 wr.Write(variation.Attributes.Count);
                 var attributeOffset = wr.SaveOffset();
                 wr.Write(variation.Uniforms.Count);
@@ -442,7 +451,7 @@ namespace ShaderLibrary
                         wr.Write(symbol.Location);
                     }
                 }
-                if (variation.Buffers.Count > 0)
+                if (variation.Buffers.Count > 0 && sharc.IsVersion2)
                 {
                     WriteRelativeOffset(wr, bufferOffset, start);
                     foreach (var symbol in variation.Buffers)

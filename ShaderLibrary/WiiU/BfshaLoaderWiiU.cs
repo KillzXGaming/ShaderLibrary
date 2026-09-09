@@ -38,7 +38,7 @@ namespace ShaderLibrary.WiiU
             var pathOffset = reader.ReadOffset();
             var numShaderModels = reader.ReadUInt16();
             bfsha.Flags = reader.ReadUInt16();
-            var v = reader.ReadUInt32();
+            bfsha.Unknown1 = reader.ReadUInt32();
             var shaderModelOffset = reader.ReadOffset();
             var unknown1 = reader.ReadUInt32();
             var unknown2 = reader.ReadUInt32();

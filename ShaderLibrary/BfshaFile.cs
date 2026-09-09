@@ -29,6 +29,7 @@ namespace ShaderLibrary
         //Wii U specific
         public ushort Flags;
         public uint DataAlignment;
+        public uint Unknown1 = 2877358083;
 
         public bool IsWiiU = false;
 

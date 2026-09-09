@@ -284,6 +284,8 @@ namespace ShaderLibrary
                 {
                     foreach (var u in b.Uniforms)
                     {
+                        Console.WriteLine($"{u.ID} {u.Offset-1}");
+
                         block.Uniforms.Add(u.ID, new BfshaUniform()
                         {
                             BlockIndex = block.Index,

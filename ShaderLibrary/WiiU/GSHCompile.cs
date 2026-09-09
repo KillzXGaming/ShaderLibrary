@@ -13,17 +13,12 @@ namespace ShaderLibrary.WiiU
     {
         static string _exeFolder => AppContext.BaseDirectory;
 
-        public static string GSH_PATH = Path.Combine(_exeFolder, "gshCompile.exe");
-        public static string OUTPUT_PATH = Path.Combine(_exeFolder, "temp.gsh");
+        public static string GSH_PATH = Path.Combine(_exeFolder, "tools", "glslcompiler.exe");
+        public static string OUTPUT_PATH = Path.Combine(_exeFolder, "tools", "temp.gsh");
 
         public GSHCompile()
         {
 
-        }
-
-        public static bool IsValid()
-        {
-            return File.Exists(GSH_PATH);
         }
 
         static string PrepareCode(string code)
@@ -36,6 +31,12 @@ namespace ShaderLibrary.WiiU
                 @"^\s*#version.*$\r?\n?", "",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
+            return "#version 330 core\n" +
+                    "#extension GL_ARB_shading_language_420pack : require\n" +
+                    "#extension GL_ARB_separate_shader_objects : require\n" +
+                    "#extension GL_ARB_texture_cube_map_array : require\n" +
+                    code;
+
             // Add necessary values and extensions
             return "#version 330 core\r\n" +
                     "#extension GL_EXT_Cafe : enable\r\n" +
@@ -44,9 +45,9 @@ namespace ShaderLibrary.WiiU
 
         public static byte[] CompileStages(string vertex, string fragment, string geometry) 
         {
-            string vsh_path = Path.Combine(_exeFolder, "temp.vert");
-            string fsh_path = Path.Combine(_exeFolder, "temp.frag");
-            string gsh_path = Path.Combine(_exeFolder, "temp.geom");
+            string vsh_path = Path.Combine(_exeFolder, "tools", "temp.vert");
+            string fsh_path = Path.Combine(_exeFolder, "tools", "temp.frag");
+            string gsh_path = Path.Combine(_exeFolder, "tools", "temp.geom");
 
             if (File.Exists(OUTPUT_PATH)) File.Delete(OUTPUT_PATH);
 
@@ -62,12 +63,11 @@ namespace ShaderLibrary.WiiU
 
             string cmd = $"";
             // Shader stages
-            if (!string.IsNullOrEmpty(vertex))    cmd += $" -v {vsh_path}";
-            if (!string.IsNullOrEmpty(fragment))  cmd += $" -p {fsh_path}";
-            if (!string.IsNullOrEmpty(geometry))  cmd += $" -g {gsh_path}";
+            if (!string.IsNullOrEmpty(vertex))    cmd += $" -vs {vsh_path}";
+            if (!string.IsNullOrEmpty(fragment))  cmd += $" -ps {fsh_path}";
+           // if (!string.IsNullOrEmpty(geometry))  cmd += $" -g {gsh_path}";
 
-            //  Exec(GSH_PATH, $"-v {vsh_path} -p {fsh_path} -o {OUTPUT_PATH} -force_uniformblock -no_limit_array_syms -nospark -O");
-            Exec(GSH_PATH, $"{cmd} -o {OUTPUT_PATH} -force_uniformblock -no_limit_array_syms -nospark -O");
+            Exec(GSH_PATH, $"{cmd} -o {OUTPUT_PATH}");
 
             if (File.Exists(OUTPUT_PATH))
             {
