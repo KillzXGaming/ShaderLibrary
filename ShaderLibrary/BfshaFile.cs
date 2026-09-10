@@ -275,6 +275,8 @@ namespace ShaderLibrary
         /// </summary>
         public int MaxRingItemSize = 0;
 
+        public int Flags = 0;
+
         public BnshFile.ShaderVariation GetVariation(int program_index)
         {
             if (program_index == -1) return null;
@@ -603,6 +605,12 @@ namespace ShaderLibrary
         public BfshaGX2PixelHeader GX2PixelData;
         public BfshaGX2VertexHeader GX2VertexData;
         public BfshaGX2GeometryHeader GX2GeometryData;
+        public BfshaGX2GeometryHeader GX2GeometryCopyData;
+        // Wii U 3.5 only
+        public GX2ShaderPart GX2VertexPart;
+        public GX2ShaderPart GX2PixelPart;
+        public GX2ShaderPart GX2GeometryPart;
+        public GX2ShaderPart GX2GeometryCopyPart;
 
         public ushort[] GX2Instructions = new ushort[10];
 
@@ -695,5 +703,13 @@ namespace ShaderLibrary
         public int GeoemetryLocation = -1;
         public int FragmentLocation = -1;
         public int ComputeLocation = -1;
+    }
+
+    public class GX2ShaderPart
+    {
+        public uint Unknown1;
+        public uint Unknown2;
+        public byte[] Data1;
+        public byte[] Data2;
     }
 }

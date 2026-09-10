@@ -25,6 +25,7 @@ namespace ShaderLibrary.WiiU
             foreach (var str in bfsha.StringPool.Strings)
                 _savedStrings.Add(str, new List<long>());
 
+            writer.Header = bfsha.BinHeader;
             writer.WriteSignature("FSHA");
             writer.Write((byte)bfsha.BinHeader.VersionMajor);
             writer.Write((byte)bfsha.BinHeader.VersionMicro);
@@ -58,6 +59,7 @@ namespace ShaderLibrary.WiiU
             WriteDictionary(writer, bfsha.ShaderModels);
 
             Dictionary<byte[], List<long>> data_blocks = new Dictionary<byte[], List<long>>();
+            Dictionary<byte[], List<long>> data_blocks2 = new Dictionary<byte[], List<long>>();
 
             //here we try to write in a similar order to original
             foreach (var shaderModel in bfsha.ShaderModels.Values)
@@ -86,7 +88,7 @@ namespace ShaderLibrary.WiiU
 
                 SaveReference(writer, shaderModel.Programs);
                 foreach (var prog in shaderModel.Programs)
-                    WriteShaderProgram(writer, shaderModel,  prog);
+                    WriteShaderProgram(writer, shaderModel, prog);
 
                 SaveReference(writer, shaderModel.KeyTable);
                 for (int i = 0; i < shaderModel.KeyTable.Length; i++)
@@ -94,7 +96,7 @@ namespace ShaderLibrary.WiiU
 
                 foreach (var block in shaderModel.UniformBlocks.Values)
                 {
-                    if (block.DefaultBuffer  != null)
+                    if (block.DefaultBuffer != null)
                     {
                         SaveReference(writer, block.DefaultBuffer);
                         writer.Write(block.DefaultBuffer);
@@ -116,6 +118,36 @@ namespace ShaderLibrary.WiiU
                     WriteDictionary(writer, op.Choices);
 
                 Dictionary<long, BfshaGX2Header> gx2HeaderLoopOffsets = new Dictionary<long, BfshaGX2Header>();
+
+                void WriteShaderPartHeader(GX2ShaderPart header)
+                {
+                    if (header == null) return;
+
+                    SaveReference(writer, header);
+
+                    writer.Write(header.Unknown1);
+                    writer.Write(header.Unknown2);
+                    writer.Write((uint)header.Data1.Length);
+                    writer.Write((uint)header.Data2.Length);
+                    var pos = writer.BaseStream.Position;
+                    writer.Write(0u);
+                    writer.Write(0u);
+
+                    // data 1
+                    {
+                        if (!data_blocks.ContainsKey(header.Data1))
+                            data_blocks.Add(header.Data1, new List<long>());
+
+                        data_blocks[header.Data1].Add(pos);
+                    }
+                    // data 2
+                    {
+                        if (!data_blocks2.ContainsKey(header.Data2))
+                            data_blocks2.Add(header.Data2, new List<long>());
+
+                        data_blocks2[header.Data2].Add(pos + 4);
+                    }
+                }
 
                 void WriteShaderHeader(BfshaGX2Header header)
                 {
@@ -149,9 +181,22 @@ namespace ShaderLibrary.WiiU
                     WriteLocationList(writer, program.SamplerIndices);
                     WriteLocationList(writer, program.UniformBlockIndices);
 
-                    WriteShaderHeader(program.GX2VertexData);
-                    WriteShaderHeader(program.GX2GeometryData);
-                    WriteShaderHeader(program.GX2PixelData);
+                    // 3.5 has non gx2 shaders, v4 (BOTW) has gx2 shaders used again
+                    if ((writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5) 
+                        && writer.Header.VersionMajor < 4)
+                    {
+                        WriteShaderPartHeader(program.GX2VertexPart);
+                        WriteShaderPartHeader(program.GX2GeometryPart);
+                        WriteShaderPartHeader(program.GX2GeometryCopyPart);
+                        WriteShaderPartHeader(program.GX2PixelPart);
+                    }
+                    else
+                    {
+                        WriteShaderHeader(program.GX2VertexData);
+                        WriteShaderHeader(program.GX2GeometryData);
+                        WriteShaderHeader(program.GX2GeometryCopyData);
+                        WriteShaderHeader(program.GX2PixelData);
+                    }
 
                     foreach (var ofs in gx2HeaderLoopOffsets)
                     {
@@ -167,6 +212,14 @@ namespace ShaderLibrary.WiiU
 
             SaveStringTable(writer);
 
+            foreach (var block in data_blocks2)
+            {
+                writer.AlignBytes((int)32);
+                foreach (var ofs in block.Value)
+                    writer.WriteOffset(ofs);
+                writer.Write(block.Key);
+            }
+
             foreach (var block in data_blocks)
             {
                 writer.AlignBytes((int)bfsha.DataAlignment);
@@ -180,7 +233,8 @@ namespace ShaderLibrary.WiiU
             writer.AlignBytes((int)bfsha.DataAlignment);
 
             //file size
-            using (writer.BaseStream.TemporarySeek(_fileSizePos, SeekOrigin.Begin)) {
+            using (writer.BaseStream.TemporarySeek(_fileSizePos, SeekOrigin.Begin))
+            {
                 writer.Write((uint)writer.BaseStream.Length);
             }
         }
@@ -194,6 +248,9 @@ namespace ShaderLibrary.WiiU
                 writer.Write((sbyte)index.VertexLocation);
                 writer.Write((sbyte)index.GeoemetryLocation);
                 writer.Write((sbyte)index.FragmentLocation);
+                // Write compute location for version 3.5+ and 4.0+
+                if ((writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5) || writer.Header.VersionMajor >= 4)
+                    writer.Write((sbyte)index.ComputeLocation);
             }
             writer.AlignBytes(4);
         }
@@ -210,6 +267,9 @@ namespace ShaderLibrary.WiiU
 
         private void WriteShaderModel(BinaryDataWriter writer, ShaderModel shaderModel)
         {
+            bool isV35OrHigher = writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5 ||
+                                 writer.Header.VersionMajor >= 4;
+
             SaveReference(writer, shaderModel);
             writer.Write((byte)shaderModel.StaticKeyLength);
             writer.Write((byte)shaderModel.DynamicKeyLength);
@@ -222,6 +282,8 @@ namespace ShaderLibrary.WiiU
             writer.Write((byte)0);
             writer.Write((ushort)shaderModel.MaxVSRingItemSize);
             writer.Write((ushort)shaderModel.MaxRingItemSize);
+            if (isV35OrHigher)
+                writer.Write(shaderModel.Flags);
 
             writer.Write(shaderModel.UnknownIndices2);
             writer.Write((uint)shaderModel.UniformBlocks.Sum(x => x.Value.Uniforms?.Count));
@@ -229,7 +291,8 @@ namespace ShaderLibrary.WiiU
             writer.Write(shaderModel.DefaultProgramIndex);
 
             SaveString(writer, shaderModel.Name);
-            writer.Write(0);
+            if (!isV35OrHigher)
+                writer.Write(0);
             writer.Write(0);
 
             void WriteDictValueOffsets<T>(ResDict<T> value) where T : IResData, new()
@@ -335,12 +398,48 @@ namespace ShaderLibrary.WiiU
 
         private void WriteShaderProgram(BinaryDataWriter writer, ShaderModel shaderModel, BfshaShaderProgram program)
         {
-            if (writer.Header.VersionMajor >= 4)
+            if (writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5 || writer.Header.VersionMajor >= 4)
             {
-                throw new Exception($"Version {writer.Header.VersionMajor} not supported!");
+                // Version 3.5+ format with dual instruction sets
+                writer.Write((ushort)program.Flags);
+                writer.Write((byte)program.SamplerIndices.Count);
+                writer.Write((byte)program.UniformBlockIndices.Count);
+                writer.Write(program.UsedAttributeFlags);
+
+                for (int i = 0; i < 16; i++)
+                {
+                    if (i < program.GX2Instructions.Length)
+                        writer.Write(program.GX2Instructions[i]);
+                    else
+                        writer.Write((ushort)0);
+                }
+                writer.Write(0); //always 0
+
+                SaveDataPointer(writer, program.SamplerIndices);
+                SaveDataPointer(writer, program.UniformBlockIndices);
+
+                if (writer.Header.VersionMajor >= 4)
+                {
+                    SaveDataPointer(writer, program.GX2VertexData);
+                    SaveDataPointer(writer, program.GX2GeometryData);
+                    SaveDataPointer(writer, program.GX2GeometryCopyData);
+                    SaveDataPointer(writer, program.GX2PixelData);
+                    SaveDataPointer(writer, null); // ShaderComputeDataOffset TODO
+                }
+                else
+                {
+                    SaveDataPointer(writer, program.GX2VertexPart);
+                    SaveDataPointer(writer, program.GX2GeometryPart);
+                    SaveDataPointer(writer, program.GX2GeometryCopyPart);
+                    SaveDataPointer(writer, program.GX2PixelPart);
+                    SaveDataPointer(writer, null); // ShaderComputeDataOffset TODO
+                }
+
+                SaveDataPointer(writer, shaderModel);
             }
             else
             {
+                // Version 3.0-3.4 format
                 writer.Write((ushort)program.Flags);
                 writer.Write((byte)program.SamplerIndices.Count);
                 writer.Write((byte)program.UniformBlockIndices.Count);
@@ -377,7 +476,7 @@ namespace ShaderLibrary.WiiU
             writer.Write(nodes.Count * 16 + 8); //size
             writer.Write(dict.Count); //count
 
-            for (int i = 0; i < nodes.Count; i++) 
+            for (int i = 0; i < nodes.Count; i++)
             {
                 writer.Write(nodes[i].Reference);
                 writer.Write(nodes[i].IdxLeft);
@@ -402,7 +501,7 @@ namespace ShaderLibrary.WiiU
             long table_start = writer.Position;
             writer.WriteOffset(_stringPoolOfsPos + 4);
 
-           // var ordered = _savedStrings.OrderBy(x => x.Key).ToList();
+            // var ordered = _savedStrings.OrderBy(x => x.Key).ToList();
 
             foreach (var str in _savedStrings)
             {
@@ -418,7 +517,8 @@ namespace ShaderLibrary.WiiU
 
             long table_size = writer.Position - table_start;
 
-            using (writer.BaseStream.TemporarySeek(_stringPoolOfsPos, SeekOrigin.Begin)) {
+            using (writer.BaseStream.TemporarySeek(_stringPoolOfsPos, SeekOrigin.Begin))
+            {
                 writer.Write((uint)table_size);
             }
         }
@@ -474,7 +574,7 @@ namespace ShaderLibrary.WiiU
                 _savedRefs.Add(value, writer.Position);
         }
 
-        private void SaveString( BinaryDataWriter writer, string value)
+        private void SaveString(BinaryDataWriter writer, string value)
         {
             var pos = writer.Position;
             writer.Write(0U);
