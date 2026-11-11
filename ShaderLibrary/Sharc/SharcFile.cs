@@ -4,6 +4,7 @@ using ShaderLibrary.Sharc;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml.Serialization;
+using static ShaderLibrary.SharcFile;
 
 namespace ShaderLibrary
 {
@@ -55,9 +56,9 @@ namespace ShaderLibrary
             public string Value;
         }
 
-        public class ShaderProgram
+        public class ShaderProgram : ISharcProgram
         {
-            public string Name;
+            public string Name { get; set; }
 
             public List<MacroDefine> VertexMacros = new List<MacroDefine>();
             public List<MacroDefine> FragmentMacros = new List<MacroDefine>();
@@ -79,11 +80,25 @@ namespace ShaderLibrary
             public int GeoemetryShaderIndex = -1;
             public int ComputeShaderIndex = -1;
 
+            public int GetBinaryIndex(int variation) => -1;
+
             public int GetVariationIndex(Dictionary<string, string> options)
                 => SharcUtils.GetVariationIndex(this.VariationMacros, options);
 
             public IEnumerable<Dictionary<string, string>> GetAllVariationCombinations()
                 => SharcUtils.GetAllVariationCombinations(this.VariationMacros);
+
+            public IEnumerable<SharcFile.VariationMacro> GetMacros() => VariationMacros;
+
+            public string ToXml()
+            {
+                var serializer = new XmlSerializer(typeof(ShaderProgram));
+                using (var writer = new StringWriter())
+                {
+                    serializer.Serialize(writer, this);
+                    return writer.ToString();
+                }
+            }
         }
 
         public class VariationMacro
@@ -108,6 +123,7 @@ namespace ShaderLibrary
             public string SymbolName;
             [XmlAttribute("values")]
             public List<string> Values = new();
+            [XmlIgnore]
             [XmlElement("default_data")]
             public byte[] DefaultData;
             [XmlElement("used_variants")]
@@ -131,11 +147,23 @@ namespace ShaderLibrary
         public Header FileHeader;
         public List<ShaderProgram> Programs = new();
         public List<ShaderSource> Sources = new();
-        public string Name;
+
+        public string Name { get; set; }
+        public uint Version
+        {
+            get => this.FileHeader.Version;
+            set => this.FileHeader.Version = value;
+        }
+        public bool IsLittleEndian
+        {
+            get => this.FileHeader.ByteOrder == 1;
+            set => this.FileHeader.ByteOrder = value ? 1u : 0;
+        }
 
         public bool IsSwitch = false;
 
         public uint GetVersion() => this.FileHeader.Version;
+        public IEnumerable<ISharcProgram> GetPrograms() => this.Programs;
 
         public static bool Identify(Stream stream)
         {
@@ -153,14 +181,21 @@ namespace ShaderLibrary
             using (var reader = new BinaryDataReader(File.OpenRead(filePath)))
                 SharcReader.Read(this, reader);
         }
+        public SharcFile(Stream stream)
+        {
+            using (var reader = new BinaryDataReader(stream))
+                SharcReader.Read(this, reader);
+        }
 
         public void Save(string filePath)
         {
             using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-            using (var wr = new BinaryDataWriter(fs))
-            {
-                //SharcfbV1Writer.Write(this, wr);
-            }
+                Save(fs);
+        }
+        public void Save(Stream stream)
+        {
+            using (var writer = new BinaryDataWriter(stream))
+                SharcWriter.Write(this, writer);
         }
 
         internal class SharcReader
@@ -338,6 +373,200 @@ namespace ShaderLibrary
                 section.Invoke(reader, sharc);
 
                 reader.SeekBegin(start + sectionSize);
+            }
+        }
+
+        internal class SharcWriter
+        {
+            public static void Write(SharcFile sharc, BinaryDataWriter writer)
+            {
+                writer.Version = (int)sharc.GetVersion();
+
+                var header = sharc.FileHeader ?? new SharcFile.Header();
+                writer.WriteStruct(header);
+                WriteStringWithLength(writer, sharc.Name ?? "Unnamed");
+
+                // Programs
+                WriteSectionList(writer, sharc.Programs, WriteShaderProgram);
+                // Sources
+                WriteSectionList(writer, sharc.Sources, WriteShaderSource);
+                // File size
+                header.FileSize = (uint)writer.BaseStream.Length;
+                using (writer.BaseStream.TemporarySeek(0, SeekOrigin.Begin)) {
+                    writer.WriteStruct(header);
+                }
+            }
+
+            private static void WriteShaderSource(BinaryDataWriter writer, SharcFile.ShaderSource src)
+            {
+                byte[] nameBytes = GetUtf8ZeroTerminated(src.Name);
+                byte[] data = src.Data ?? Array.Empty<byte>();
+
+                writer.Write((uint)nameBytes.Length);
+                writer.Write((uint)data.Length);
+                writer.Write((uint)data.Length); // same as code length 1
+                writer.Write(nameBytes);
+                writer.Write(data);
+            }
+            private static void WriteShaderProgram(BinaryDataWriter writer, SharcFile.ShaderProgram prog)
+            {
+                byte[] nameBytes = GetUtf8ZeroTerminated(prog.Name);
+                writer.Write((uint)nameBytes.Length);
+
+                bool isV13 = writer.Version >= 13;
+                if (isV13)
+                {
+                    writer.Write((short)prog.VertexShaderIndex);
+                    writer.Write((short)prog.ComputeShaderIndex);
+                    writer.Write((short)prog.FragmentShaderIndex);
+                    writer.Write((short)prog.GeoemetryShaderIndex);
+
+                    // 4 unknown shorts (usually -1)
+                    for (int i = 0; i < 4; i++)
+                        writer.Write((short)-1);
+                }
+                else
+                {
+                    writer.Write(prog.VertexShaderIndex);
+                    writer.Write(prog.FragmentShaderIndex);
+                    writer.Write(prog.GeoemetryShaderIndex);
+                }
+                writer.Write(nameBytes);
+
+                // Macros
+                WriteSectionList(writer, prog.VertexMacros, WriteMacroDefine);
+                WriteSectionList(writer, prog.FragmentMacros, WriteMacroDefine);
+                WriteSectionList(writer, prog.GeometryMacros, WriteMacroDefine);
+                if (isV13)
+                    WriteSectionList(writer, prog.ComputeMacros, WriteMacroDefine);
+
+                WriteSectionList(writer,  prog.VariationMacros, WriteVariationMacro);
+                WriteSectionList(writer, prog.VariationDefaults, WriteVariationMacro);
+
+                // Symbols
+                if (isV13)
+                {
+                    WriteSectionList(writer, prog.UniformBlocksV13, WriteSymbolUniformBlock);
+                }
+                else
+                {
+                    WriteSectionList(writer, prog.Uniforms, WriteSymbol);
+                    WriteSectionList(writer, prog.UniformBlocks, WriteSymbol);
+                    WriteSectionList(writer, prog.Samplers, WriteSymbol);
+                    WriteSectionList(writer, prog.Attributes, WriteSymbol);
+                }
+            }
+
+            private static void WriteMacroDefine(BinaryDataWriter writer, SharcFile.MacroDefine macro)
+            {
+                byte[] macroBytes = GetUtf8ZeroTerminated(macro.Name);
+                byte[] valuesBytes = GetUtf8ZeroTerminated(macro.Value);
+                writer.Write((uint)macroBytes.Length);
+                writer.Write((uint)valuesBytes.Length);
+                writer.Write(macroBytes);
+                writer.Write(valuesBytes);
+            }
+
+            private static void WriteVariationMacro(BinaryDataWriter writer, SharcFile.VariationMacro macro)
+            {
+                byte[] nameBytes = GetUtf8ZeroTerminated(macro.Name);
+
+                writer.Write((uint)nameBytes.Length);
+                writer.Write((uint)macro.Values.Count);
+                writer.Write((uint)(macro.Data?.Length ?? 0));
+                writer.Write(nameBytes);
+                foreach (var val in macro.Values)
+                {
+                    writer.Write(Encoding.UTF8.GetBytes(val));
+                    writer.Write((byte)0);
+                }
+                writer.Write(macro.Data ?? Array.Empty<byte>());
+            }
+
+            private static void WriteSymbol(BinaryDataWriter writer, SharcFile.Symbol sym)
+            {
+                byte[] nameBytes = GetUtf8ZeroTerminated(sym.Name);
+                byte[] symbolBytes = GetUtf8ZeroTerminated(sym.SymbolName);
+
+                writer.Write(sym.Offset);
+                writer.Write((uint)nameBytes.Length);
+                writer.Write((uint)symbolBytes.Length);
+                writer.Write((uint)(sym.DefaultData?.Length ?? 0));
+                writer.Write((uint)(sym.UsedVariants?.Length ?? 0));
+
+                writer.Write(nameBytes);
+                writer.Write(symbolBytes);
+                writer.Write(sym.DefaultData ?? Array.Empty<byte>());
+                writer.Write(sym.UsedVariants ?? Array.Empty<byte>());
+            }
+
+            private static void WriteSymbolUniformBlock(BinaryDataWriter writer, SharcFile.SymbolUniformBlock block)
+            {
+                writer.Write(block.Size);
+                WriteStringWithLength(writer, block.Name ?? "");
+                WriteSectionList(writer, block.Uniforms, WriteSymbolUniform);
+            }
+
+            private static void WriteSymbolUniform(BinaryDataWriter writer, SharcFile.Symbol uniform)
+            {
+                writer.Write(uniform.Offset);
+                WriteStringWithLength(writer, uniform.Name ?? "");
+            }
+
+            private static void WriteStringWithLength(BinaryDataWriter writer, string str)
+            {
+                if (string.IsNullOrEmpty(str))
+                {
+                    writer.Write(0u);
+                    return;
+                }
+                byte[] bytes = GetUtf8ZeroTerminated(str);
+                writer.Write((uint)bytes.Length);
+                writer.Write(bytes);
+            }
+
+            static void WriteSection(BinaryDataWriter writer, Action<BinaryDataWriter> section, int alignment = 4)
+            {
+                var start = writer.Position;
+                writer.Write(0); // size set later
+                section.Invoke(writer);
+                if (alignment != 0)
+                    writer.AlignBytes(alignment);
+                var end = writer.Position;
+                using (writer.BaseStream.TemporarySeek(start, SeekOrigin.Begin))
+                {
+                    writer.Write((uint)(end - start));
+                }
+            }
+
+            static void WriteSection<T>(T value, BinaryDataWriter writer, Action<BinaryDataWriter, T> section, int alignment = 4)
+            {
+                var start = writer.Position;
+                writer.Write(0); // size set later
+                section.Invoke(writer, value);
+
+                if (alignment != 0)
+                    writer.AlignBytes(alignment);
+                var end = writer.Position;
+                using (writer.BaseStream.TemporarySeek(start, SeekOrigin.Begin))
+                {
+                    writer.Write((uint)(end - start));
+                }
+            }
+
+            private static void WriteSectionList<T>(BinaryDataWriter writer, List<T> list, Action<BinaryDataWriter, T> writeItem)
+            {
+                WriteSection(writer, (wr) =>
+                {
+                    wr.Write(list.Count);
+                    foreach (var item in list)
+                        WriteSection(item, writer, writeItem, 0);
+                }, 0);
+            }
+
+            private static byte[] GetUtf8ZeroTerminated(string str)
+            {
+                return Encoding.UTF8.GetBytes((str ?? "") + "\0");
             }
         }
     }

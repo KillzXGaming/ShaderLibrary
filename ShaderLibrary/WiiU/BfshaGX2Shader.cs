@@ -10,6 +10,7 @@ namespace BfshaLibrary.WiiU
     public interface BfshaGX2Header
     {
         byte[] Data { get; set; }
+        byte[] DisplayList { get; set; }
         byte[] Regs { get; set; }
         uint Mode { get; set; }
         List<GSHFile.GX2LoopVar> Loops { get; set; }
@@ -25,6 +26,8 @@ namespace BfshaLibrary.WiiU
         public byte[] Data { get; set; }
         public byte[] Regs { get; set; }
         public uint Mode { get; set; }
+        // 3.5 only
+        public byte[] DisplayList { get; set; }
 
         public List<GSHFile.GX2LoopVar> Loops { get; set; } = new List<GSHFile.GX2LoopVar>();
 
@@ -95,7 +98,8 @@ namespace BfshaLibrary.WiiU
         public byte[] Regs { get; set; }
         public uint Mode { get; set; }
         public uint[] UnusedHeader { get; set; } = new uint[14];
-
+        // 3.5 only
+        public byte[] DisplayList { get; set; }
         public List<GSHFile.GX2LoopVar> Loops { get; set; } = new List<GSHFile.GX2LoopVar>();
 
         public byte[] ToArray()
@@ -138,6 +142,8 @@ namespace BfshaLibrary.WiiU
         public byte[] Regs { get; set; }
         public uint Mode { get; set; }
         public uint[] UnusedHeader { get; set; }
+        // 3.5 only
+        public byte[] DisplayList { get; set; }
         public List<GSHFile.GX2LoopVar> Loops { get; set; } = new List<GSHFile.GX2LoopVar>();
 
         public byte[] ToArray()
@@ -150,6 +156,7 @@ namespace BfshaLibrary.WiiU
             return mem.ToArray();
         }
 
+        public BfshaGX2GeometryHeader() { }
         public BfshaGX2GeometryHeader(BinaryDataReader reader)
         {
             Regs = reader.ReadBytes(19 * 4);

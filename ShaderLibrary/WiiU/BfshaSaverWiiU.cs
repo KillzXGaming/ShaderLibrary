@@ -26,11 +26,13 @@ namespace ShaderLibrary.WiiU
                 _savedStrings.Add(str, new List<long>());
 
             writer.Header = bfsha.BinHeader;
+            writer.Flags = bfsha.Flags;
+
             writer.WriteSignature("FSHA");
             writer.Write((byte)bfsha.BinHeader.VersionMajor);
-            writer.Write((byte)bfsha.BinHeader.VersionMicro);
-            writer.Write((byte)0);
             writer.Write((byte)bfsha.BinHeader.VersionMinor);
+            writer.Write((byte)0);
+            writer.Write((byte)bfsha.BinHeader.VersionMicro);
 
             writer.Write((ushort)bfsha.BinHeader.ByteOrder);
             writer.Write((ushort)0x10);
@@ -119,33 +121,41 @@ namespace ShaderLibrary.WiiU
 
                 Dictionary<long, BfshaGX2Header> gx2HeaderLoopOffsets = new Dictionary<long, BfshaGX2Header>();
 
-                void WriteShaderPartHeader(GX2ShaderPart header)
+                void WriteShaderDLHeader(BfshaGX2Header header)
                 {
                     if (header == null) return;
 
                     SaveReference(writer, header);
+                    if (header is BfshaGX2PixelHeader)
+                        writer.Write((byte)5); // GX2_PATCH_TYPE pixel
+                    else if(header is BfshaGX2GeometryHeader)
+                        writer.Write((byte)4); // GX2_PATCH_TYPE geometry
+                    else 
+                        writer.Write((byte)2); // GX2_PATCH_TYPE vertex
 
-                    writer.Write(header.Unknown1);
-                    writer.Write(header.Unknown2);
-                    writer.Write((uint)header.Data1.Length);
-                    writer.Write((uint)header.Data2.Length);
+                    writer.Write((byte)header.Mode);
+                    writer.Write((ushort)0);
+                    writer.Write(0); // padding?
+
+                    writer.Write((uint)header.Data.Length);
+                    writer.Write((uint)header.DisplayList.Length);
                     var pos = writer.BaseStream.Position;
                     writer.Write(0u);
                     writer.Write(0u);
 
                     // data 1
                     {
-                        if (!data_blocks.ContainsKey(header.Data1))
-                            data_blocks.Add(header.Data1, new List<long>());
+                        if (!data_blocks.ContainsKey(header.Data))
+                            data_blocks.Add(header.Data, new List<long>());
 
-                        data_blocks[header.Data1].Add(pos);
+                        data_blocks[header.Data].Add(pos);
                     }
                     // data 2
                     {
-                        if (!data_blocks2.ContainsKey(header.Data2))
-                            data_blocks2.Add(header.Data2, new List<long>());
+                        if (!data_blocks2.ContainsKey(header.DisplayList))
+                            data_blocks2.Add(header.DisplayList, new List<long>());
 
-                        data_blocks2[header.Data2].Add(pos + 4);
+                        data_blocks2[header.DisplayList].Add(pos + 4);
                     }
                 }
 
@@ -155,6 +165,12 @@ namespace ShaderLibrary.WiiU
 
                     writer.AlignBytes(4);
                     var pos = writer.BaseStream.Position;
+
+                    if ((writer.Flags & 0x20) != 0)
+                    {
+                        WriteShaderDLHeader(header);
+                        return;
+                    }
 
                     header.UnusedHeader = new uint[header.UnusedHeader.Length];
                     var data = header.ToArray();
@@ -181,22 +197,12 @@ namespace ShaderLibrary.WiiU
                     WriteLocationList(writer, program.SamplerIndices);
                     WriteLocationList(writer, program.UniformBlockIndices);
 
-                    // 3.5 has non gx2 shaders, v4 (BOTW) has gx2 shaders used again
-                    if ((writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5) 
-                        && writer.Header.VersionMajor < 4)
-                    {
-                        WriteShaderPartHeader(program.GX2VertexPart);
-                        WriteShaderPartHeader(program.GX2GeometryPart);
-                        WriteShaderPartHeader(program.GX2GeometryCopyPart);
-                        WriteShaderPartHeader(program.GX2PixelPart);
-                    }
-                    else
-                    {
-                        WriteShaderHeader(program.GX2VertexData);
-                        WriteShaderHeader(program.GX2GeometryData);
+                    // 3.5 has non gx2 shaders with display lists as an option
+                    WriteShaderHeader(program.GX2VertexData);
+                    WriteShaderHeader(program.GX2GeometryData);
+                    if (writer.Header.IsVersionGEqual(3, 5, 3))
                         WriteShaderHeader(program.GX2GeometryCopyData);
-                        WriteShaderHeader(program.GX2PixelData);
-                    }
+                    WriteShaderHeader(program.GX2PixelData);
 
                     foreach (var ofs in gx2HeaderLoopOffsets)
                     {
@@ -249,7 +255,7 @@ namespace ShaderLibrary.WiiU
                 writer.Write((sbyte)index.GeoemetryLocation);
                 writer.Write((sbyte)index.FragmentLocation);
                 // Write compute location for version 3.5+ and 4.0+
-                if ((writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5) || writer.Header.VersionMajor >= 4)
+                if (writer.Header.IsVersionGEqual(3, 5, 0))
                     writer.Write((sbyte)index.ComputeLocation);
             }
             writer.AlignBytes(4);
@@ -267,9 +273,6 @@ namespace ShaderLibrary.WiiU
 
         private void WriteShaderModel(BinaryDataWriter writer, ShaderModel shaderModel)
         {
-            bool isV35OrHigher = writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5 ||
-                                 writer.Header.VersionMajor >= 4;
-
             SaveReference(writer, shaderModel);
             writer.Write((byte)shaderModel.StaticKeyLength);
             writer.Write((byte)shaderModel.DynamicKeyLength);
@@ -282,7 +285,7 @@ namespace ShaderLibrary.WiiU
             writer.Write((byte)0);
             writer.Write((ushort)shaderModel.MaxVSRingItemSize);
             writer.Write((ushort)shaderModel.MaxRingItemSize);
-            if (isV35OrHigher)
+            if (writer.Header.IsVersionGEqual(3, 5, 0))
                 writer.Write(shaderModel.Flags);
 
             writer.Write(shaderModel.UnknownIndices2);
@@ -291,7 +294,7 @@ namespace ShaderLibrary.WiiU
             writer.Write(shaderModel.DefaultProgramIndex);
 
             SaveString(writer, shaderModel.Name);
-            if (!isV35OrHigher)
+            if (!writer.Header.IsVersionGEqual(3, 5, 0))
                 writer.Write(0);
             writer.Write(0);
 
@@ -398,14 +401,13 @@ namespace ShaderLibrary.WiiU
 
         private void WriteShaderProgram(BinaryDataWriter writer, ShaderModel shaderModel, BfshaShaderProgram program)
         {
-            if (writer.Header.VersionMajor >= 3 && writer.Header.VersionMicro >= 5 || writer.Header.VersionMajor >= 4)
-            {
-                // Version 3.5+ format with dual instruction sets
-                writer.Write((ushort)program.Flags);
-                writer.Write((byte)program.SamplerIndices.Count);
-                writer.Write((byte)program.UniformBlockIndices.Count);
-                writer.Write(program.UsedAttributeFlags);
+            writer.Write((ushort)program.Flags);
+            writer.Write((byte)program.SamplerIndices.Count);
+            writer.Write((byte)program.UniformBlockIndices.Count);
+            writer.Write(program.UsedAttributeFlags);
 
+            if (writer.Header.IsVersionGEqual(3, 5, 0))
+            {
                 for (int i = 0; i < 16; i++)
                 {
                     if (i < program.GX2Instructions.Length)
@@ -418,32 +420,17 @@ namespace ShaderLibrary.WiiU
                 SaveDataPointer(writer, program.SamplerIndices);
                 SaveDataPointer(writer, program.UniformBlockIndices);
 
-                if (writer.Header.VersionMajor >= 4)
-                {
-                    SaveDataPointer(writer, program.GX2VertexData);
-                    SaveDataPointer(writer, program.GX2GeometryData);
+                SaveDataPointer(writer, program.GX2VertexData);
+                SaveDataPointer(writer, program.GX2GeometryData);
+                if (writer.Header.IsVersionGEqual(3, 5, 3))
                     SaveDataPointer(writer, program.GX2GeometryCopyData);
-                    SaveDataPointer(writer, program.GX2PixelData);
-                    SaveDataPointer(writer, null); // ShaderComputeDataOffset TODO
-                }
-                else
-                {
-                    SaveDataPointer(writer, program.GX2VertexPart);
-                    SaveDataPointer(writer, program.GX2GeometryPart);
-                    SaveDataPointer(writer, program.GX2GeometryCopyPart);
-                    SaveDataPointer(writer, program.GX2PixelPart);
-                    SaveDataPointer(writer, null); // ShaderComputeDataOffset TODO
-                }
+                SaveDataPointer(writer, program.GX2PixelData);
+                SaveDataPointer(writer, null); // ShaderComputeDataOffset TODO
 
                 SaveDataPointer(writer, shaderModel);
             }
             else
             {
-                // Version 3.0-3.4 format
-                writer.Write((ushort)program.Flags);
-                writer.Write((byte)program.SamplerIndices.Count);
-                writer.Write((byte)program.UniformBlockIndices.Count);
-                writer.Write(program.UsedAttributeFlags);
                 for (int i = 0; i < program.GX2Instructions.Length; i++)
                     writer.Write(program.GX2Instructions[i]);
 

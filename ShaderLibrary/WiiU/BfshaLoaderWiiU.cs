@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualBasic.FileIO;
+﻿using BfshaLibrary.WiiU;
+using Microsoft.VisualBasic.FileIO;
 using ShaderLibrary.IO;
 using System;
 using System.Collections.Generic;
@@ -23,9 +24,9 @@ namespace ShaderLibrary.WiiU
             bfsha.BinHeader = new BinaryHeader();
             bfsha.BinHeader.Magic = reader.ReadUInt32();
             bfsha.BinHeader.VersionMajor = reader.ReadByte();
-            bfsha.BinHeader.VersionMicro = reader.ReadByte();
-            reader.ReadByte();
             bfsha.BinHeader.VersionMinor = reader.ReadByte();
+            reader.ReadByte();
+            bfsha.BinHeader.VersionMicro = reader.ReadByte();
 
             reader.Header = bfsha.BinHeader;
 
@@ -39,11 +40,14 @@ namespace ShaderLibrary.WiiU
             var pathOffset = reader.ReadOffset();
             var numShaderModels = reader.ReadUInt16();
             bfsha.Flags = reader.ReadUInt16();
-            bfsha.Unknown1 = reader.ReadUInt32();
+            // for some reason, 3.5.2 is missing this
+            if (!bfsha.BinHeader.IsVersion(3, 5, 2))
+                bfsha.Unknown1 = reader.ReadUInt32();
             var shaderModelOffset = reader.ReadOffset();
             var unknown1 = reader.ReadUInt32();
             var unknown2 = reader.ReadUInt32();
 
+            reader.Flags = bfsha.Flags;
             bfsha.Name = reader.LoadString((uint)nameOffset);
             bfsha.Path = reader.LoadString((uint)pathOffset);
 
@@ -55,7 +59,6 @@ namespace ShaderLibrary.WiiU
                 reader.Align(4);
 
                 bfsha.StringPool.Strings.Add(value);
-                Console.WriteLine($"Strings {value}");
             }
 
             reader.SeekBegin(shaderModelOffset);
@@ -64,9 +67,6 @@ namespace ShaderLibrary.WiiU
 
         static ShaderModel ReadShaderModel(BinaryDataReader reader)
         {
-            bool isV35OrHigher = reader.Header.VersionMajor >= 3 && reader.Header.VersionMicro >= 5 ||
-                                 reader.Header.VersionMajor >= 4;
-
             ShaderModel shaderModel = new ShaderModel();
             shaderModel.StaticKeyLength = reader.ReadByte();
             shaderModel.DynamicKeyLength = reader.ReadByte();
@@ -80,8 +80,8 @@ namespace ShaderLibrary.WiiU
             byte unknown = reader.ReadByte();
             shaderModel.MaxVSRingItemSize = reader.ReadUInt16();
             shaderModel.MaxRingItemSize = reader.ReadUInt16();
-            if (isV35OrHigher)
-                shaderModel.Flags = reader.ReadInt32();
+            if (reader.Header.IsVersionGEqual(3, 5, 0))
+                shaderModel.Flags = reader.ReadInt32(); // might be compute shader related
 
             shaderModel.UnknownIndices2 = reader.ReadBytes(4);
             uint uniformCount = reader.ReadUInt32();
@@ -90,7 +90,7 @@ namespace ShaderLibrary.WiiU
 
             uint nameOffset = (uint)reader.ReadOffset();
             uint unknown6 = reader.ReadUInt32();
-            if (!isV35OrHigher)
+            if (!reader.Header.IsVersionGEqual(3, 5, 0))
                 reader.ReadUInt32();
 
             var staticOptionsOffset = reader.ReadOffset();
@@ -150,7 +150,10 @@ namespace ShaderLibrary.WiiU
 
             shaderModel.Programs = new List<BfshaShaderProgram>();
             for (int i = 0; i < programCount; i++)
+            {
+                Console.WriteLine($"Program {i}");
                 shaderModel.Programs.Add(ReadShaderProgram(reader));
+            }
 
             return shaderModel;
         }
@@ -175,8 +178,6 @@ namespace ShaderLibrary.WiiU
                 option.Choices = ReadDictionary(reader, ReadOptionValue);
             }
 
-            Console.WriteLine($"BfshaShaderOption {option.Name}");
-
             return option;
         }
 
@@ -196,10 +197,6 @@ namespace ShaderLibrary.WiiU
             sampler.GX2Count = reader.ReadByte();
             reader.ReadSByte(); //padding
             reader.ReadUInt32();
-            // sampler.Annotation = reader.LoadString((uint)reader.ReadOffset());
-
-            Console.WriteLine($"BfshaSampler {sampler.Index}");
-
             return sampler;
         }
 
@@ -210,9 +207,6 @@ namespace ShaderLibrary.WiiU
             attr.GX2Type = reader.ReadByte();
             attr.GX2Count = reader.ReadByte();
             attr.Location = reader.ReadSByte();
-
-            Console.WriteLine($"BfshaAttribute {attr.Index}");
-
             return attr;
         }
 
@@ -240,9 +234,6 @@ namespace ShaderLibrary.WiiU
                 block.DefaultBuffer = reader.ReadCustom(() =>
                     reader.ReadBytes(block.Size), (uint)dataOffset);
             }
-
-            Console.WriteLine($"BfshaUniformBlock {block.Index}");
-
             return block;
         }
 
@@ -257,9 +248,6 @@ namespace ShaderLibrary.WiiU
             uniform.GX2ParamType = reader.ReadByte();
             reader.ReadByte();
             reader.ReadInt32();
-
-            Console.WriteLine($"BfshaUniform {uniform.Index}");
-
             return uniform;
         }
 
@@ -271,83 +259,33 @@ namespace ShaderLibrary.WiiU
             var blockCount = reader.ReadByte();
             program.UsedAttributeFlags = reader.ReadUInt32();
 
-            if (reader.Header.VersionMajor >= 3 && reader.Header.VersionMicro >= 5 ||
-                reader.Header.VersionMajor >= 4)
-            {
-                // Version 3.5+ has a different format 
+            long GX2GeometryCopyDataOffset = 0;
+            long GX2ComputeDataOffset = 0;
+
+            if (reader.Header.IsVersionGEqual(3, 5, 0))
                 program.GX2Instructions = reader.ReadUInt16s(16);
-                reader.ReadUInt32(); // 0
-
-                var samplerLocationsOffset = reader.ReadOffset();
-                var uniformBlockLocationsOffset = reader.ReadOffset();
-
-                var GX2VertexDataOffset = reader.ReadOffset();
-                var GX2GeometryDataOffset = reader.ReadOffset();
-                var GX2GeometryCopyDataOffset = reader.ReadOffset();
-                var GX2FragmentDataOffset = reader.ReadOffset();
-                long GX2ComputeDataOffset = reader.ReadOffset();
-
-                var parentModelOffset = reader.ReadOffset();
-
-                program.SamplerIndices = ReadLocationList(reader, samplerLocationsOffset, samplerCount);
-                program.UniformBlockIndices = ReadLocationList(reader, uniformBlockLocationsOffset, blockCount);
-
-                if (reader.Header.VersionMajor >= 4)
-                {
-                    program.GX2VertexData = reader.ReadCustom(() =>
-                    {
-                        return new BfshaLibrary.WiiU.BfshaGX2VertexHeader(reader);
-                    }, (uint)GX2VertexDataOffset);
-
-                    program.GX2GeometryData = reader.ReadCustom(() =>
-                    {
-                        return new BfshaLibrary.WiiU.BfshaGX2GeometryHeader(reader);
-                    }, (uint)GX2GeometryDataOffset);
-
-                    program.GX2GeometryCopyData = reader.ReadCustom(() =>
-                    {
-                        return new BfshaLibrary.WiiU.BfshaGX2GeometryHeader(reader);
-                    }, (uint)GX2GeometryDataOffset);
-
-                    program.GX2PixelData = reader.ReadCustom(() =>
-                    {
-                        return new BfshaLibrary.WiiU.BfshaGX2PixelHeader(reader);
-                    }, (uint)GX2FragmentDataOffset);
-                }
-                else // 3.5 have different shader sections
-                {
-                    program.GX2VertexPart = reader.ReadCustom(() =>
-                    {
-                        return ReadShaderPart(reader);
-                    }, (uint)GX2VertexDataOffset);
-                    program.GX2GeometryPart = reader.ReadCustom(() =>
-                    {
-                        return ReadShaderPart(reader);
-                    }, (uint)GX2GeometryDataOffset);
-                    program.GX2GeometryCopyPart = reader.ReadCustom(() =>
-                    {
-                        return ReadShaderPart(reader);
-                    }, (uint)GX2GeometryCopyDataOffset);
-                    program.GX2PixelPart = reader.ReadCustom(() =>
-                    {
-                        return ReadShaderPart(reader);
-                    }, (uint)GX2FragmentDataOffset);
-                }
-            }
             else
-            {
                 program.GX2Instructions = reader.ReadUInt16s(10);
-                reader.ReadUInt32(); //always 0
 
-                var samplerLocationsOffset = reader.ReadOffset();
-                var uniformBlockLocationsOffset = reader.ReadOffset();
+            reader.ReadUInt32(); // 0
 
-                var GX2VertexDataOffset = reader.ReadOffset();
-                var GX2GeometryDataOffset = reader.ReadOffset();
-                var GX2FragmentDataOffset = reader.ReadOffset();
+            var samplerLocationsOffset = reader.ReadOffset();
+            var uniformBlockLocationsOffset = reader.ReadOffset();
 
-                var parentModelOffset = reader.ReadOffset();
+            var GX2VertexDataOffset = reader.ReadOffset();
+            var GX2GeometryDataOffset = reader.ReadOffset();
+            if (reader.Header.IsVersionGEqual(3, 5, 3))
+                GX2GeometryCopyDataOffset = reader.ReadOffset();
+            var GX2FragmentDataOffset = reader.ReadOffset();
+            if (reader.Header.IsVersionGEqual(3, 5, 0))
+                GX2ComputeDataOffset = reader.ReadOffset();
 
+            var parentModelOffset = reader.ReadOffset();
+            program.SamplerIndices = ReadLocationList(reader, samplerLocationsOffset, samplerCount);
+            program.UniformBlockIndices = ReadLocationList(reader, uniformBlockLocationsOffset, blockCount);
+
+            if ((reader.Flags & 0x20) == 0)
+            {
                 program.GX2VertexData = reader.ReadCustom(() =>
                 {
                     return new BfshaLibrary.WiiU.BfshaGX2VertexHeader(reader);
@@ -358,36 +296,68 @@ namespace ShaderLibrary.WiiU
                     return new BfshaLibrary.WiiU.BfshaGX2GeometryHeader(reader);
                 }, (uint)GX2GeometryDataOffset);
 
+                program.GX2GeometryCopyData = reader.ReadCustom(() =>
+                {
+                    return new BfshaLibrary.WiiU.BfshaGX2GeometryHeader(reader);
+                }, (uint)GX2GeometryCopyDataOffset);
+
                 program.GX2PixelData = reader.ReadCustom(() =>
                 {
                     return new BfshaLibrary.WiiU.BfshaGX2PixelHeader(reader);
                 }, (uint)GX2FragmentDataOffset);
-
-                program.SamplerIndices = ReadLocationList(reader, samplerLocationsOffset, samplerCount);
-                program.UniformBlockIndices = ReadLocationList(reader, uniformBlockLocationsOffset, blockCount);
             }
+            else
+            {
+                program.GX2VertexData = reader.ReadCustom(() =>
+                {
+                    var dl = ReadShaderPart(reader);
+                    return GX2DisplayListHelper.CreateShader<BfshaGX2VertexHeader>(dl);
+                }, (uint)GX2VertexDataOffset);
+
+                program.GX2GeometryData = reader.ReadCustom(() =>
+                {
+                    var dl = ReadShaderPart(reader);
+                    return GX2DisplayListHelper.CreateShader<BfshaGX2GeometryHeader>(dl);
+                }, (uint)GX2GeometryDataOffset);
+
+                program.GX2GeometryCopyData = reader.ReadCustom(() =>
+                {
+                    var dl = ReadShaderPart(reader);
+                    return GX2DisplayListHelper.CreateShader<BfshaGX2GeometryHeader>(dl);
+                }, (uint)GX2GeometryCopyDataOffset);
+
+                program.GX2PixelData = reader.ReadCustom(() =>
+                {
+                    var dl = ReadShaderPart(reader);
+                    return GX2DisplayListHelper.CreateShader<BfshaGX2PixelHeader>(dl);
+                }, (uint)GX2FragmentDataOffset);
+            }
+
             return program;
         }
 
-        static GX2ShaderPart ReadShaderPart(BinaryDataReader reader)
+        static GX2ShaderDisplayList ReadShaderPart(BinaryDataReader reader)
         {
-            GX2ShaderPart p = new();
-            p.Unknown1 = reader.ReadUInt32();
-            p.Unknown2 = reader.ReadUInt32();
-            var size1 = reader.ReadUInt32();
-            var size2 = reader.ReadUInt32();
-            var dataOffset1 = reader.ReadOffset();
-            var dataOffset2 = reader.ReadOffset();
+            GX2ShaderDisplayList p = new();
+            p.patchType = reader.ReadByte();
+            p.modeType = reader.ReadByte();
+            p.padd = reader.ReadUInt16();
+            p.unk = reader.ReadUInt32();
 
-            if (size1 != 0)
+            var codeSize = reader.ReadUInt32();
+            var dlSize = reader.ReadUInt32();
+            var codeOffset = reader.ReadOffset();
+            var dlOffset = reader.ReadOffset();
+
+            if (codeSize != 0)
             {
-                reader.SeekBegin(dataOffset1);
-                p.Data1 = reader.ReadBytes((int)size1);
+                reader.SeekBegin(codeOffset);
+                p.Code = reader.ReadBytes((int)codeSize);
             }
-            if (size2 != 0)
+            if (dlSize != 0)
             {
-                reader.SeekBegin(dataOffset2);
-                p.Data2 = reader.ReadBytes((int)size2);
+                reader.SeekBegin(dlOffset);
+                p.DisplayList = reader.ReadBytes((int)dlSize);
             }
             return p;
         }
@@ -406,7 +376,7 @@ namespace ShaderLibrary.WiiU
                         FragmentLocation = reader.ReadSByte(),
                     });
                     // Version 3.5+ introduces compute shader support
-                    if ((reader.Header.VersionMajor >= 3 && reader.Header.VersionMicro >= 5) || reader.Header.VersionMajor >= 4)
+                    if (reader.Header.IsVersionGEqual(3, 5, 0))
                         values[i].ComputeLocation = reader.ReadSByte();
                 }
             }

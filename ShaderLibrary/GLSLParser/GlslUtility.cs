@@ -63,7 +63,7 @@ namespace ShaderLibrary
             var sb = new System.Text.StringBuilder();
             using (var writer = new System.IO.StringWriter(sb))
             {
-                string[] stringSeparators = new string[] { "\r\n" };
+                string[] stringSeparators = new string[] { "\r\n", "\n" };
                 string[] lines = shaderSource.Split(stringSeparators, StringSplitOptions.None);
 
                 foreach (var line in lines)

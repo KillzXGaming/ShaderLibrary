@@ -8,7 +8,19 @@ namespace ShaderLibrary.Sharc
 {
     public interface ISharcFile
     {
-        public uint GetVersion();
+        IEnumerable<ISharcProgram> GetPrograms();
+        uint GetVersion();
         public bool IsVersion2 => false;
+        void Save(Stream stream);
+    }
+
+    public interface ISharcProgram
+    {
+        string Name { get; set; }
+        IEnumerable<SharcFile.VariationMacro> GetMacros();
+        int GetVariationIndex(Dictionary<string, string> options);
+        int GetBinaryIndex(int variation);
+        IEnumerable<Dictionary<string, string>> GetAllVariationCombinations();
+        string ToXml();
     }
 }

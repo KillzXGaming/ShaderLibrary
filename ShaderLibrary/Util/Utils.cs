@@ -8,23 +8,6 @@ using System.Xml.Linq;
 
 namespace ShaderLibrary
 {
-    internal readonly ref struct TemporarySeekHandle
-    {
-        private readonly Stream Stream;
-        private readonly long RetPos;
-
-        public TemporarySeekHandle(Stream stream, long retpos)
-        {
-            this.Stream = stream;
-            this.RetPos = retpos;
-        }
-
-        public readonly void Dispose()
-        {
-            Stream.Seek(RetPos, SeekOrigin.Begin);
-        }
-    }
-
     internal static class Utils
     {
         public static Span<byte> AsSpan<T>(ref T val) where T : unmanaged
@@ -103,13 +86,6 @@ namespace ShaderLibrary
                 if (subFields.Length > 0)
                     AdjustBigEndianByteOrder(fieldType, buffer, isBigEndian, effectiveOffset);
             }
-        }
-
-        public static TemporarySeekHandle TemporarySeek(this Stream stream, long offset, SeekOrigin origin)
-        {
-            long ret = stream.Position;
-            stream.Seek(offset, origin);
-            return new TemporarySeekHandle(stream, ret);
         }
     }
 }

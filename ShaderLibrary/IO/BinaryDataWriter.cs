@@ -11,6 +11,8 @@ namespace ShaderLibrary.IO
     public class BinaryDataWriter : BinaryWriter
     {
         public BinaryHeader Header;
+        public uint Flags;
+        public int Version;
 
         public RelocationTable RelocationTable = new RelocationTable();
         public StringTable StringTable = new StringTable();
@@ -101,6 +103,12 @@ namespace ShaderLibrary.IO
         public void WriteSignature(string magic)
         {
             this.Write(Encoding.ASCII.GetBytes(magic));
+        }
+
+        public void WriteStringZeroTerminated(string str)
+        {
+            Write(Encoding.UTF8.GetBytes(str));
+            Write((byte)0);
         }
 
         internal void WriteDictionary<T>(ResDict<T> dict, long offset_pos) where T : IResData, new()

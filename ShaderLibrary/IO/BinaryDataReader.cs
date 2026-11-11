@@ -10,6 +10,7 @@ namespace ShaderLibrary.IO
     public class BinaryDataReader : BinaryReader
     {
         public BinaryHeader Header;
+        public uint Flags;
 
         public long Position => this.BaseStream.Position;
 

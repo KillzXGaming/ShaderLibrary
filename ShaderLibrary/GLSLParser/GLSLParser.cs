@@ -79,7 +79,7 @@ namespace ShaderLibrary
             RegexOptions.Compiled);
 
         private static readonly Regex MacrosRegex = new Regex(
-            @"#define\s+(?<name>\w+)\s+(?<value>.+?)\s*\/\/@\s*(?<macroProperties>(\w+\s*=\s*""[^""]+""\s*)*)(?:flags\s*=\s*""(?<flags>[^""]+)"")?",
+            @"#define[ \t]+(?<name>\w+)[ \t]+(?<value>[^\r\n]+?)[ \t]*\/\/@[ \t]*(?<macroProperties>(\w+[ \t]*=[ \t]*""[^""]+""[ \t]*)*)(?:flags[ \t]*=[ \t]*""(?<flags>[^""]+)"")?",
             RegexOptions.Compiled);
 
         private static readonly Regex StorageBufferRegex = new Regex(
@@ -110,6 +110,8 @@ namespace ShaderLibrary
                 string symbol = name;
 
                 if (qualifier != "in" && qualifier != "out")
+                    continue;
+                if (string.IsNullOrEmpty(location) || !IsValueType(type))
                     continue;
 
                 int array_count = 1;
@@ -235,6 +237,9 @@ namespace ShaderLibrary
                     case "sampler2DArray":
                     case "samplerCube":
                     case "samplerCubeArray":
+                    case "sampler2DShadow":
+                    case "sampler2DArrayShadow":
+                    case "samplerCubeShadow":
                         if (!this.Samplers.ContainsKey(samplerName))
                             this.Samplers.Add(samplerName, new IntermediateShader.Sampler()
                             {
@@ -309,7 +314,7 @@ namespace ShaderLibrary
                             case "desc": desc = valueProp; break;
                             case "render_info": render_info = valueProp; break;
                             case "render_state_property": render_state = valueProp; break;
-                            case "flags": compile_all = valueProp.Contains("compile_all_coices"); break;
+                            case "flags": compile_all = valueProp.Contains("compile_all_choices") || valueProp.Contains("compile_all_coices"); break;
                             case "id": name = valueProp; break;
                             case "order": int.TryParse(valueProp, out order); break;
                             case "group": group = valueProp; break;
@@ -343,6 +348,11 @@ namespace ShaderLibrary
 
                 if (this.StaticOptions.ContainsKey(name) || this.DynamicOptions.ContainsKey(name))
                     continue;
+
+                // String options keep the macro as the choice index (#define gsys_assign_type 1) default to that choice
+                if (type == "string" && int.TryParse(macroMatch.Groups["value"].Value.Trim(), out int defaultIndex) &&
+                    defaultIndex >= 0 && defaultIndex < choices.Count)
+                    value = choices[defaultIndex];
 
                 var option = new IntermediateShader.OptionMacro();
                 option.Choices = choices.Distinct().Select(x => x.TrimStart()).ToList();
@@ -553,9 +563,20 @@ namespace ShaderLibrary
                 case "ivec2": return (IntermediateShader.ValueType.INT2, count);
                 case "ivec3": return (IntermediateShader.ValueType.INT3, count);
                 case "ivec4": return (IntermediateShader.ValueType.INT4, count);
+                case "uint": return (IntermediateShader.ValueType.INT, count);
+                case "uvec2": return (IntermediateShader.ValueType.INT2, count);
+                case "uvec3": return (IntermediateShader.ValueType.INT3, count);
+                case "uvec4": return (IntermediateShader.ValueType.INT4, count);
             }
             throw new Exception($"value type not supported {type}!");
         }
+
+        private static readonly HashSet<string> ValueTypeNames = new HashSet<string>()
+        {
+            "mat4", "mat2x4", "mat4x2", "mat3x4", "bool", "float", "vec2", "vec3", "vec4",
+            "int", "ivec2", "ivec3", "ivec4", "uint", "uvec2", "uvec3", "uvec4",
+        };
+        private static bool IsValueType(string type) => ValueTypeNames.Contains(type);
 
         private IntermediateShader.Sampler.SamplerType GetType(string type)
         {
@@ -567,6 +588,9 @@ namespace ShaderLibrary
                 case "sampler2DArray": return IntermediateShader.Sampler.SamplerType.Sampler2DArray;
                 case "samplerCube": return IntermediateShader.Sampler.SamplerType.SamplerCube;
                 case "samplerCubeArray": return IntermediateShader.Sampler.SamplerType.SamplerCubeArray;
+                case "sampler2DShadow": return IntermediateShader.Sampler.SamplerType.Sampler2D;
+                case "sampler2DArrayShadow": return IntermediateShader.Sampler.SamplerType.Sampler2DArray;
+                case "samplerCubeShadow": return IntermediateShader.Sampler.SamplerType.SamplerCube;
             }
             throw new Exception($"sampler type not supported {type}!");
         }

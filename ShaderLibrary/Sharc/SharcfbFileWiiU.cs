@@ -24,9 +24,9 @@ namespace ShaderLibrary
             public byte[] Data;
         }
 
-        public class ShaderProgram
+        public class ShaderProgram : ISharcProgram
         {
-            public string Name;
+            public string Name { get; set; }
             public uint Kind = 3;
             public int BaseIndex;
             public int StageCount => HasGeometryShader() ? 3 : 2;
@@ -54,6 +54,9 @@ namespace ShaderLibrary
             public bool HasGeometryShader() => (Kind & 4) != 0;
             public bool HasPixelShader() => (Kind & 2) != 0;
             public bool HasVertexShader() => (Kind & 1) != 0;
+
+            public IEnumerable<SharcFile.VariationMacro> GetMacros() => VariationMacros;
+            public string ToXml() => "";
         }
 
         public class VariationMacro
@@ -85,14 +88,29 @@ namespace ShaderLibrary
 
         public bool IsSwitch = false;
 
+        public IEnumerable<ISharcProgram> GetPrograms() => this.Programs;
+
         public SharcfbFileWiiU() {
             this.FileHeader = new Header()
             {
             };
         }
+
         public SharcfbFileWiiU(string filePath) {
             using (var reader = new BinaryDataReader(File.OpenRead(filePath)))
                 SharcfbV1Reader.Read(this, reader);
+        }
+        public SharcfbFileWiiU(Stream stream)
+        {
+            using (var reader = new BinaryDataReader(stream))
+                SharcfbV1Reader.Read(this, reader);
+        }
+
+
+        public void Save(Stream stream)
+        {
+            using (var wr = new BinaryDataWriter(stream))
+                SharcfbV1Writer.Write(this, wr);
         }
 
         public void Save(string filePath)

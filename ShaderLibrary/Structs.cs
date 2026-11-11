@@ -25,6 +25,23 @@ namespace ShaderLibrary
         public ushort BlockOffset;
         public uint RelocationTableOffset;
         public uint FileSize;
+
+        public bool IsVersion(ushort major, byte minor, byte micro)
+        {
+            return VersionMajor == major &&
+                   VersionMinor == minor &&
+                   VersionMicro == micro;
+        }
+        public bool IsVersionGEqual(ushort major, byte minor, byte micro)
+        {
+            if (VersionMajor != major)
+                return VersionMajor > major;
+
+            if (VersionMinor != minor)
+                return VersionMinor > minor;
+
+            return VersionMicro >= micro;
+        }
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 0x10)]

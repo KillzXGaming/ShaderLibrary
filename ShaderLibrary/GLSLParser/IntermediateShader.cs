@@ -259,7 +259,11 @@ namespace ShaderLibrary
                 shaderModel.UniformBlocks.Add(b.ID, block);
 
                 if (block.DefaultBuffer?.Length > 0)
+                {
+                    if (b.Size > block.DefaultBuffer.Length)
+                        Array.Resize(ref block.DefaultBuffer, (int)b.Size);
                     block.header.Size = (ushort)block.DefaultBuffer.Length;
+                }
 
                 //material, shape, skeleton, option block indices
                 switch (b.Type)

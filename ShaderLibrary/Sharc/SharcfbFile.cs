@@ -7,6 +7,7 @@ using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using static ShaderLibrary.SharcFile;
 
 namespace ShaderLibrary
@@ -30,22 +31,44 @@ namespace ShaderLibrary
         {
             public ShaderType Type;
 
+            [XmlIgnore]
             public byte[] ByteCode;
+
+            [XmlIgnore]
             public byte[] ControlShader;
 
+            [XmlArray]
             public List<Symbol> Attributes = new List<Symbol>();
+            [XmlArray]
             public List<Symbol> Samplers = new List<Symbol>();
+            [XmlArray]
             public List<Symbol> Buffers = new List<Symbol>();
+            [XmlArray]
             public List<Symbol> Uniforms = new List<Symbol>();
+            [XmlArray]
             public List<SymbolUniformBlock> UniformBlocks = new();
+
+            public string ToXml()
+            {
+                var serializer = new XmlSerializer(typeof(ShaderVariation));
+                using (var writer = new StringWriter())
+                {
+                    serializer.Serialize(writer, this);
+                    return writer.ToString();
+                }
+            }
         }
 
-        public class ShaderProgram
+        public class ShaderProgram : ISharcProgram
         {
+            [XmlAttribute]
+            public string Name { get; set; }
+            [XmlAttribute]
             public int BaseIndex;
+            [XmlAttribute]
             public int Kind = 3;
-            public string Name;
 
+            [XmlArray]
             public List<SharcFile.VariationMacro> VariationMacros = new();
 
             public int GetVariationIndex(Dictionary<string, string> options)
@@ -60,6 +83,17 @@ namespace ShaderLibrary
             public bool HasGeometryShader() => (Kind & 4) != 0;
             public bool HasPixelShader() => (Kind & 2) != 0;
             public bool HasVertexShader() => (Kind & 1) != 0;
+            public IEnumerable<SharcFile.VariationMacro> GetMacros() => VariationMacros;
+
+            public string ToXml()
+            {
+                var serializer = new XmlSerializer(typeof(ShaderProgram));
+                using (var writer = new StringWriter())
+                {
+                    serializer.Serialize(writer, this);
+                    return writer.ToString();
+                }
+            }
         }
 
         public class VariationMacro
@@ -70,13 +104,18 @@ namespace ShaderLibrary
         }
         public class Symbol
         {
+            [XmlAttribute]
             public string Name;
+            [XmlAttribute]
             public int Location;
         }
         public class SymbolUniformBlock
         {
+            [XmlAttribute]
             public string Name;
+            [XmlAttribute]
             public int Location;
+            [XmlAttribute]
             public uint Size;
         }
 
@@ -86,9 +125,7 @@ namespace ShaderLibrary
         public string Name;
 
         public bool IsSwitch = false;
-
-        public bool IsVersion2 { get; set; } = true;
-
+        public bool IsVersion2 { get; set; }
         public static bool Identify(Stream stream)
         {
             using (var reader = new BinaryDataReader(stream, false, true)) {
@@ -98,6 +135,8 @@ namespace ShaderLibrary
                 }
             }
         }
+
+        public IEnumerable<ISharcProgram> GetPrograms() => this.Programs;
 
         public SharcfbFile() {
             FileHeader = new Header()
@@ -410,6 +449,7 @@ namespace ShaderLibrary
                     wr.Write(variation.Buffers.Count);
                     bufferOffset = wr.SaveOffset();
                 }
+
                 wr.Write(variation.Attributes.Count);
                 var attributeOffset = wr.SaveOffset();
                 wr.Write(variation.Uniforms.Count);
@@ -559,7 +599,6 @@ namespace ShaderLibrary
                     writer.Write((uint)(end - start));
                 }
             }
-
 
             static void WriteRelativeOffset(BinaryDataWriter writer, long target, long start)
             {

@@ -341,7 +341,7 @@ namespace ShaderLibrary.Switch
                 symbolTable.Samplers = ReadArray(reader, reader.ReadUInt64(), shaderModel.Samplers.Count, ReadSymbol);
                 symbolTable.Images = ReadArray(reader, reader.ReadUInt64(), shaderModel.Images.Count, ReadSymbol);
                 symbolTable.UniformBlocks = ReadArray(reader, reader.ReadUInt64(), shaderModel.UniformBlocks.Count, ReadSymbol);
-                symbolTable.StorageBuffers = ReadArray(reader, reader.ReadUInt64(), shaderModel.StorageBuffers.Count, ReadSymbol);
+              //  symbolTable.StorageBuffers = ReadArray(reader, reader.ReadUInt64(), shaderModel.StorageBuffers.Count, ReadSymbol);
             }
             else if (reader.Header.VersionMajor >= 7)
             {

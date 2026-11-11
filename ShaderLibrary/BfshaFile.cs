@@ -606,11 +606,6 @@ namespace ShaderLibrary
         public BfshaGX2VertexHeader GX2VertexData;
         public BfshaGX2GeometryHeader GX2GeometryData;
         public BfshaGX2GeometryHeader GX2GeometryCopyData;
-        // Wii U 3.5 only
-        public GX2ShaderPart GX2VertexPart;
-        public GX2ShaderPart GX2PixelPart;
-        public GX2ShaderPart GX2GeometryPart;
-        public GX2ShaderPart GX2GeometryCopyPart;
 
         public ushort[] GX2Instructions = new ushort[10];
 
@@ -705,11 +700,16 @@ namespace ShaderLibrary
         public int ComputeLocation = -1;
     }
 
-    public class GX2ShaderPart
+    public class GX2ShaderDisplayList
     {
-        public uint Unknown1;
-        public uint Unknown2;
-        public byte[] Data1;
-        public byte[] Data2;
+        public byte patchType;
+        public byte modeType;
+        public ushort padd;
+        public uint unk;
+
+        public byte[] Code;
+        public byte[] DisplayList;
+
+
     }
 }
